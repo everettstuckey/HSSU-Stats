@@ -107,10 +107,19 @@
   .pill.py { background:rgba(74,158,255,.12); color:var(--accent); }
   .pill.gold { background:var(--gold-dim); color:var(--gold); }
 
+  /* Slide nav buttons */
+  .slide-nav { position:fixed; bottom:28px; right:28px; z-index:101; display:flex; gap:10px; }
+  .slide-nav button { width:44px; height:44px; border-radius:50%; border:2px solid var(--gold-dim); background:rgba(10,22,40,.85); backdrop-filter:blur(8px); color:var(--gold); font-size:1.1rem; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .2s; }
+  .slide-nav button:hover { background:var(--gold); color:var(--navy); border-color:var(--gold); }
+  .slide-nav button:disabled { opacity:.25; cursor:default; pointer-events:none; }
+  .slide-nav .counter { align-self:center; font-size:.75rem; color:var(--text3); font-weight:600; min-width:40px; text-align:center; }
+
   /* Responsive */
   @media (max-width:640px) {
     .slide { padding:70px 16px 30px; }
     .grid2, .grid3 { grid-template-columns:1fr; }
+    .slide-nav { bottom:16px; right:16px; }
+    .slide-nav button { width:38px; height:38px; font-size:.95rem; }
   }
 </style>
 </head>
@@ -688,25 +697,69 @@ Chart.defaults.font.family = 'Inter, sans-serif';
   });
 }();
 
-// --- Navigation dots ---
+// --- Slide Navigation ---
 !function(){
   const slides=document.querySelectorAll('.slide');
   const dots=document.getElementById('nav-dots');
+  let cur=0;
+
+  // Build dots
   slides.forEach((s,i)=>{
     const d=document.createElement('div');
     d.className='dot'+(i===0?' on':'');
-    d.onclick=()=>s.scrollIntoView({behavior:'smooth'});
+    d.onclick=()=>goTo(i);
     dots.appendChild(d);
   });
+
+  // Build prev/next buttons
+  const nav=document.createElement('div');
+  nav.className='slide-nav';
+  nav.innerHTML='<button id="btnPrev" title="Previous slide">&#x276E;</button><span class="counter" id="slideCounter">1 / '+slides.length+'</span><button id="btnNext" title="Next slide">&#x276F;</button>';
+  document.body.appendChild(nav);
+  const btnP=document.getElementById('btnPrev');
+  const btnN=document.getElementById('btnNext');
+  const ctr=document.getElementById('slideCounter');
+
+  function goTo(idx){
+    cur=Math.max(0,Math.min(slides.length-1,idx));
+    slides[cur].scrollIntoView({behavior:'smooth'});
+    sync();
+  }
+  function sync(){
+    dots.querySelectorAll('.dot').forEach((d,i)=>d.classList.toggle('on',i===cur));
+    btnP.disabled=cur===0;
+    btnN.disabled=cur===slides.length-1;
+    ctr.textContent=(cur+1)+' / '+slides.length;
+  }
+
+  btnP.onclick=(e)=>{e.stopPropagation();goTo(cur-1);};
+  btnN.onclick=(e)=>{e.stopPropagation();goTo(cur+1);};
+
+  // Click anywhere to advance (skip if clicking interactive elements)
+  document.addEventListener('click',(e)=>{
+    if(e.target.closest('.slide-nav, nav, a, button, canvas, input, select, textarea')) return;
+    goTo(cur+1);
+  });
+
+  // Keyboard navigation
+  document.addEventListener('keydown',(e)=>{
+    if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){e.preventDefault();goTo(cur+1);}
+    if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();goTo(cur-1);}
+    if(e.key==='Home'){e.preventDefault();goTo(0);}
+    if(e.key==='End'){e.preventDefault();goTo(slides.length-1);}
+  });
+
+  // Sync on scroll
   const obs=new IntersectionObserver(entries=>{
     entries.forEach(e=>{
       if(e.isIntersecting){
-        const idx=[...slides].indexOf(e.target);
-        dots.querySelectorAll('.dot').forEach((d,i)=>d.classList.toggle('on',i===idx));
+        cur=[...slides].indexOf(e.target);
+        sync();
       }
     });
   },{threshold:0.5});
   slides.forEach(s=>obs.observe(s));
+  sync();
 }();
 </script>
 </body>
