@@ -29,76 +29,77 @@
   nav .dot:hover { border-color:var(--gold); }
 
   /* Slides */
-  .slide { min-height:100vh; padding:80px 5vw 40px; display:flex; flex-direction:column; justify-content:center; position:relative; }
+  .slide { height:100vh; padding:56px 4vw 16px; display:flex; flex-direction:column; justify-content:center; position:relative; overflow:hidden; }
   .slide:nth-child(even) { background:var(--navy2); }
+  .slide-inner { width:100%; transform-origin:top center; }
 
   /* Title slide */
   .hero { text-align:center; }
-  .hero .tag { display:inline-block; background:var(--gold-dim); color:var(--gold); padding:6px 18px; border-radius:20px; font-size:.75rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; margin-bottom:16px; }
-  .hero h1 { font-size:clamp(2rem,5vw,3.6rem); font-weight:900; line-height:1.1; margin-bottom:12px; }
+  .hero .tag { display:inline-block; background:var(--gold-dim); color:var(--gold); padding:5px 16px; border-radius:20px; font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; margin-bottom:12px; }
+  .hero h1 { font-size:clamp(1.8rem,4.5vw,3.2rem); font-weight:900; line-height:1.1; margin-bottom:10px; }
   .hero h1 span { color:var(--gold); }
-  .hero .sub { font-size:1.1rem; color:var(--text2); max-width:700px; margin:0 auto 30px; }
-  .hero .schools { display:flex; justify-content:center; gap:40px; flex-wrap:wrap; margin-top:24px; }
+  .hero .sub { font-size:1rem; color:var(--text2); max-width:700px; margin:0 auto 20px; }
+  .hero .schools { display:flex; justify-content:center; gap:40px; flex-wrap:wrap; margin-top:16px; }
   .hero .school { text-align:center; }
   .hero .school .name { font-weight:700; font-size:1rem; }
   .hero .school .role { font-size:.78rem; color:var(--text3); }
 
   /* Section headers */
-  .sec-hdr { margin-bottom:32px; }
-  .sec-hdr .num { font-size:.75rem; color:var(--gold); font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
-  .sec-hdr h2 { font-size:clamp(1.6rem,3.5vw,2.4rem); font-weight:800; margin-top:4px; }
-  .sec-hdr p { color:var(--text2); max-width:640px; margin-top:8px; }
+  .sec-hdr { margin-bottom:16px; }
+  .sec-hdr .num { font-size:.72rem; color:var(--gold); font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
+  .sec-hdr h2 { font-size:clamp(1.4rem,3vw,2rem); font-weight:800; margin-top:2px; }
+  .sec-hdr p { color:var(--text2); max-width:640px; margin-top:4px; font-size:.9rem; }
 
   /* Cards grid */
-  .grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:20px; }
-  .grid3 { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:20px; }
+  .grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:14px; }
+  .grid3 { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; }
 
   /* Card */
-  .card { background:var(--card); border:1px solid rgba(255,255,255,.06); border-radius:var(--radius); padding:24px; transition:transform .2s, box-shadow .2s; }
+  .card { background:var(--card); border:1px solid rgba(255,255,255,.06); border-radius:var(--radius); padding:16px; transition:transform .2s, box-shadow .2s; }
   .card:hover { transform:translateY(-2px); box-shadow:0 8px 30px rgba(0,0,0,.3); }
-  .card h3 { font-size:1rem; font-weight:700; margin-bottom:8px; }
+  .card h3 { font-size:.92rem; font-weight:700; margin-bottom:6px; }
   .card .lbl { font-size:.72rem; color:var(--text3); font-weight:600; text-transform:uppercase; letter-spacing:.05em; }
 
   /* Course comparison table */
-  .cmp-tbl { width:100%; border-collapse:collapse; font-size:.85rem; margin-top:16px; }
-  .cmp-tbl th { background:var(--card2); padding:10px 14px; text-align:left; font-size:.7rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text3); font-weight:700; border-bottom:2px solid var(--gold-dim); }
-  .cmp-tbl td { padding:10px 14px; border-bottom:1px solid rgba(255,255,255,.04); vertical-align:top; }
+  .cmp-tbl { width:100%; border-collapse:collapse; font-size:.8rem; margin-top:10px; }
+  .cmp-tbl th { background:var(--card2); padding:7px 10px; text-align:left; font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text3); font-weight:700; border-bottom:2px solid var(--gold-dim); }
+  .cmp-tbl td { padding:7px 10px; border-bottom:1px solid rgba(255,255,255,.04); vertical-align:top; }
   .cmp-tbl tr:hover td { background:rgba(74,158,255,.04); }
   .cmp-tbl .course-name { font-weight:700; color:var(--gold-light); }
   .cmp-tbl .check { color:var(--ok); font-weight:700; }
   .cmp-tbl .x { color:var(--danger); font-weight:700; }
 
   /* Stat boxes */
-  .stat-box { text-align:center; padding:20px; }
-  .stat-box .big { font-size:2.4rem; font-weight:900; }
+  .stat-box { text-align:center; padding:14px; }
+  .stat-box .big { font-size:2rem; font-weight:900; }
   .stat-box .big.gold { color:var(--gold); }
   .stat-box .big.danger { color:var(--danger); }
   .stat-box .big.ok { color:var(--ok); }
   .stat-box .desc { font-size:.8rem; color:var(--text2); margin-top:4px; }
 
   /* Chart containers */
-  .chart-wrap { position:relative; width:100%; max-width:700px; margin:16px auto; }
+  .chart-wrap { position:relative; width:100%; max-width:700px; margin:10px auto; }
   .chart-wrap.wide { max-width:900px; }
   .chart-wrap canvas { width:100% !important; }
 
   /* Benefit list */
   .benefits { list-style:none; }
-  .benefits li { padding:12px 0; border-bottom:1px solid rgba(255,255,255,.04); display:flex; gap:14px; align-items:flex-start; }
+  .benefits li { padding:7px 0; border-bottom:1px solid rgba(255,255,255,.04); display:flex; gap:10px; align-items:flex-start; }
   .benefits li:last-child { border-bottom:none; }
-  .benefits .icon { font-size:1.4rem; flex-shrink:0; margin-top:2px; }
-  .benefits .txt h4 { font-size:.95rem; font-weight:700; }
-  .benefits .txt p { font-size:.82rem; color:var(--text2); margin-top:2px; }
+  .benefits .icon { font-size:1.2rem; flex-shrink:0; margin-top:2px; }
+  .benefits .txt h4 { font-size:.88rem; font-weight:700; }
+  .benefits .txt p { font-size:.78rem; color:var(--text2); margin-top:1px; }
 
   /* Timeline */
   .timeline { position:relative; padding-left:30px; }
   .timeline::before { content:''; position:absolute; left:8px; top:0; bottom:0; width:2px; background:var(--gold-dim); }
-  .timeline .step { position:relative; margin-bottom:24px; }
+  .timeline .step { position:relative; margin-bottom:14px; }
   .timeline .step::before { content:''; position:absolute; left:-26px; top:4px; width:14px; height:14px; border-radius:50%; background:var(--gold); border:3px solid var(--navy); }
-  .timeline .step h4 { font-weight:700; font-size:.95rem; }
-  .timeline .step p { font-size:.82rem; color:var(--text2); margin-top:2px; }
+  .timeline .step h4 { font-weight:700; font-size:.88rem; }
+  .timeline .step p { font-size:.78rem; color:var(--text2); margin-top:1px; }
 
   /* Footer */
-  .foot { text-align:center; padding:30px; color:var(--text3); font-size:.75rem; border-top:1px solid rgba(255,255,255,.04); }
+  .foot { text-align:center; padding:16px; color:var(--text3); font-size:.72rem; border-top:1px solid rgba(255,255,255,.04); }
   .foot a { color:var(--gold); text-decoration:none; }
 
   /* Pill/badge */
@@ -116,7 +117,7 @@
 
   /* Responsive */
   @media (max-width:640px) {
-    .slide { padding:70px 16px 30px; }
+    .slide { padding:52px 12px 12px; }
     .grid2, .grid3 { grid-template-columns:1fr; }
     .slide-nav button { width:26px; height:26px; font-size:.75rem; }
   }
@@ -760,6 +761,32 @@ Chart.defaults.font.family = 'Inter, sans-serif';
   },{threshold:0.5});
   slides.forEach(s=>obs.observe(s));
   sync();
+}();
+
+// --- Auto-fit: scale each slide's content to fit viewport ---
+!function(){
+  function fitAll(){
+    document.querySelectorAll('.slide').forEach(s=>{
+      let inner=s.querySelector('.slide-inner');
+      if(!inner){
+        inner=document.createElement('div');
+        inner.className='slide-inner';
+        while(s.firstChild) inner.appendChild(s.firstChild);
+        s.appendChild(inner);
+      }
+      inner.style.transform='none';
+      inner.style.width='100%';
+      const avail=s.clientHeight;
+      const natural=inner.scrollHeight;
+      if(natural>avail){
+        const scale=Math.max(0.55,avail/natural);
+        inner.style.transform='scale('+scale+')';
+        inner.style.width=(100/scale)+'%';
+      }
+    });
+  }
+  setTimeout(fitAll,400);
+  window.addEventListener('resize',()=>{clearTimeout(window._fitT);window._fitT=setTimeout(fitAll,200);});
 }();
 </script>
 </body>
