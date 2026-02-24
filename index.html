@@ -344,40 +344,40 @@
 <section class="slide" id="s4">
   <div class="sec-hdr">
     <div class="num">04 &mdash; Equity &amp; Access</div>
-    <h2>Race, Income &amp; Math Achievement</h2>
-    <p>Grade outcomes broken down by race and household income reveal where the gaps are &mdash; and why on-site HSSU instruction matters.</p>
+    <h2>Income, Race &amp; Math Performance</h2>
+    <p>Does zip-code income predict math outcomes? Who are the students in each income bracket? The data connects poverty, demographics, and achievement.</p>
   </div>
   <div class="grid2">
     <div class="card">
-      <h3>Math Grade Distribution by Race</h3>
-      <div class="chart-wrap"><canvas id="chartGradeRace"></canvas></div>
+      <h3>Avg Math Score by Income Quartile</h3>
+      <div class="chart-wrap"><canvas id="chartScoreIncome"></canvas></div>
     </div>
     <div class="card">
-      <h3>D/F Rate by Race/Ethnicity</h3>
-      <div class="chart-wrap"><canvas id="chartDFRace"></canvas></div>
+      <h3>Math D/F Rate by Income Quartile</h3>
+      <div class="chart-wrap"><canvas id="chartDFIncome"></canvas></div>
     </div>
   </div>
   <div class="grid2" style="margin-top:8px">
     <div class="card">
-      <h3>Average GPA by Income Quartile</h3>
-      <div class="chart-wrap"><canvas id="chartIncomeQ"></canvas></div>
+      <h3>Who Lives in Each Income Bracket?</h3>
+      <div class="chart-wrap"><canvas id="chartRaceIncome"></canvas></div>
     </div>
     <div class="card">
-      <h3>Income vs. GPA by Zip Code</h3>
-      <div class="chart-wrap"><canvas id="chartBubbleZip"></canvas></div>
+      <h3>Math D/F Rate by Race</h3>
+      <div class="chart-wrap"><canvas id="chartDFRace"></canvas></div>
     </div>
   </div>
   <div class="card" style="margin-top:8px">
-    <h3>What This Means for the HSSU Partnership</h3>
+    <h3>The Story These Charts Tell</h3>
     <div class="grid3" style="margin-top:6px">
       <div>
-        <p style="font-size:.74rem;color:var(--text2);line-height:1.35"><strong style="color:var(--danger)">D/F rates vary sharply by race</strong>, showing systemic barriers to math success. Traditional off-site statistics courses add transportation and scheduling burdens that widen these gaps.</p>
+        <p style="font-size:.74rem;color:var(--text2);line-height:1.35"><strong style="color:var(--danger)">Lower-income zip codes &rarr; lower math scores &amp; higher D/F rates.</strong> Students from economically disadvantaged neighborhoods face steeper barriers to math success.</p>
       </div>
       <div>
-        <p style="font-size:.74rem;color:var(--text2);line-height:1.35"><strong style="color:var(--gold)">On-site HSSU instruction</strong> at CSMB eliminates transportation barriers. As an HBCU, Harris-Stowe brings culturally responsive pedagogy and mentorship that directly serves CSMB's diverse student body.</p>
+        <p style="font-size:.74rem;color:var(--text2);line-height:1.35"><strong style="color:var(--gold)">Lower-income brackets are disproportionately students of color.</strong> The income gap and the racial achievement gap are the same gap. On-site HSSU instruction removes transportation and cost barriers.</p>
       </div>
       <div>
-        <p style="font-size:.74rem;color:var(--text2);line-height:1.35"><strong style="color:var(--ok)">Income quartile data</strong> shows whether zip-code economics correlate with GPA. Either way, data science skills are high-value equalizers that open doors regardless of background.</p>
+        <p style="font-size:.74rem;color:var(--text2);line-height:1.35"><strong style="color:var(--ok)">An HBCU partnership addresses both.</strong> Harris-Stowe brings culturally responsive pedagogy, affordable dual-credit, and a direct pathway &mdash; meeting students where they are.</p>
       </div>
     </div>
   </div>
@@ -559,7 +559,7 @@ ggplot(patients, aes(x = treatment_group,
 </div>
 
 <script>
-const CD = {"grade_dist": {"periods": [{"label": "Quarter 1", "A": 114, "B": 90, "C": 66, "D": 34, "F": 48}, {"label": "Quarter 2", "A": 118, "B": 89, "C": 71, "D": 45, "F": 41}, {"label": "Semester 1", "A": 124, "B": 91, "C": 70, "D": 45, "F": 41}, {"label": "Progress Report 3", "A": 91, "B": 83, "C": 58, "D": 42, "F": 81}]}, "avg_course": {"courses": [{"name": "Geometry 1-2", "avg": 93.2, "n": 5}, {"name": "Ap Calculus BC", "avg": 89.8, "n": 13}, {"name": "Ap Calculus AB", "avg": 82.1, "n": 21}, {"name": "Col Prep Algebra", "avg": 81.7, "n": 23}, {"name": "AP Pre Calculus", "avg": 81.6, "n": 51}, {"name": "Adv Algebra", "avg": 77.5, "n": 81}, {"name": "Geometry", "avg": 76.7, "n": 82}, {"name": "Algebra", "avg": 73.9, "n": 82}], "col_used": "Semester 1 (%)"}, "df_rate": {"courses": [{"name": "Geometry", "df_rate": 37.8, "df_count": 31, "total": 82}, {"name": "Algebra", "df_rate": 29.3, "df_count": 24, "total": 82}, {"name": "Adv Algebra", "df_rate": 25.9, "df_count": 21, "total": 81}, {"name": "Col Prep Algebra", "df_rate": 17.4, "df_count": 4, "total": 23}, {"name": "Ap Calculus AB", "df_rate": 9.5, "df_count": 2, "total": 21}, {"name": "AP Pre Calculus", "df_rate": 7.8, "df_count": 4, "total": 51}, {"name": "Ap Calculus BC", "df_rate": 0.0, "df_count": 0, "total": 13}, {"name": "ECA Precalculus Algebra", "df_rate": 0.0, "df_count": 0, "total": 6}, {"name": "Geometry 1-2", "df_rate": 0.0, "df_count": 0, "total": 5}]}, "income_q": {"quartiles": [{"label": "$19K\u2013$38K", "gpa": 3.06, "n": 53, "income": 33778.0}, {"label": "$38K\u2013$44K", "gpa": 3.2, "n": 51, "income": 43459.0}, {"label": "$44K\u2013$48K", "gpa": 3.42, "n": 25, "income": 47643.0}, {"label": "$48K\u2013$97K", "gpa": 3.33, "n": 29, "income": 59543.0}], "correlation": 0.225}, "bubble_zip": {"bubbles": [{"zip": "63106", "x": 19390.0, "y": 3.12, "r": 3}, {"zip": "63113", "x": 24319.0, "y": 2.79, "r": 4}, {"zip": "63107", "x": 25156.0, "y": 3.11, "r": 2}, {"zip": "63115", "x": 27436.0, "y": 2.92, "r": 5}, {"zip": "63112", "x": 35987.0, "y": 2.74, "r": 9}, {"zip": "63118", "x": 36512.0, "y": 3.0, "r": 14}, {"zip": "63110", "x": 38654.0, "y": 3.44, "r": 15}, {"zip": "63111", "x": 41589.0, "y": 2.86, "r": 15}, {"zip": "63116", "x": 44238.0, "y": 3.35, "r": 36}, {"zip": "63108", "x": 45123.0, "y": 3.28, "r": 7}, {"zip": "63104", "x": 48623.0, "y": 3.47, "r": 18}, {"zip": "63139", "x": 55421.0, "y": 3.17, "r": 16}, {"zip": "63109", "x": 59846.0, "y": 3.4, "r": 10}], "correlation": 0.225}, "grade_dist_race": {"groups": [{"race": "Black", "n": 166, "A": 20.5, "B": 20.5, "C": 26.5, "D": 14.5, "F": 18.1}, {"race": "Hispanic/Latino", "n": 26, "A": 26.9, "B": 42.3, "C": 7.7, "D": 15.4, "F": 7.7}, {"race": "White", "n": 149, "A": 45.6, "B": 28.9, "C": 12.8, "D": 7.4, "F": 5.4}, {"race": "Asian", "n": 22, "A": 50.0, "B": 13.6, "C": 13.6, "D": 18.2, "F": 4.5}, {"race": "Two or More", "n": 6, "A": 50.0, "B": 0.0, "C": 33.3, "D": 16.7, "F": 0.0}]}, "df_rate_race": {"groups": [{"race": "Black", "df_rate": 32.5, "df_count": 54, "n": 166}, {"race": "Hispanic/Latino", "df_rate": 23.1, "df_count": 6, "n": 26}, {"race": "Asian", "df_rate": 22.7, "df_count": 5, "n": 22}, {"race": "Two or More", "df_rate": 16.7, "df_count": 1, "n": 6}, {"race": "White", "df_rate": 12.8, "df_count": 19, "n": 149}]}};
+const CD = {"grade_dist": {"periods": [{"label": "Quarter 1", "A": 114, "B": 90, "C": 66, "D": 34, "F": 48}, {"label": "Quarter 2", "A": 118, "B": 89, "C": 71, "D": 45, "F": 41}, {"label": "Semester 1", "A": 124, "B": 91, "C": 70, "D": 45, "F": 41}, {"label": "Progress Report 3", "A": 91, "B": 83, "C": 58, "D": 42, "F": 81}]}, "avg_course": {"courses": [{"name": "Geometry 1-2", "avg": 93.2, "n": 5}, {"name": "Ap Calculus BC", "avg": 89.8, "n": 13}, {"name": "Ap Calculus AB", "avg": 82.1, "n": 21}, {"name": "Col Prep Algebra", "avg": 81.7, "n": 23}, {"name": "AP Pre Calculus", "avg": 81.6, "n": 51}, {"name": "Adv Algebra", "avg": 77.5, "n": 81}, {"name": "Geometry", "avg": 76.7, "n": 82}, {"name": "Algebra", "avg": 73.9, "n": 82}], "col_used": "Semester 1 (%)"}, "df_rate": {"courses": [{"name": "Geometry", "df_rate": 37.8, "df_count": 31, "total": 82}, {"name": "Algebra", "df_rate": 29.3, "df_count": 24, "total": 82}, {"name": "Adv Algebra", "df_rate": 25.9, "df_count": 21, "total": 81}, {"name": "Col Prep Algebra", "df_rate": 17.4, "df_count": 4, "total": 23}, {"name": "Ap Calculus AB", "df_rate": 9.5, "df_count": 2, "total": 21}, {"name": "AP Pre Calculus", "df_rate": 7.8, "df_count": 4, "total": 51}, {"name": "Ap Calculus BC", "df_rate": 0.0, "df_count": 0, "total": 13}, {"name": "ECA Precalculus Algebra", "df_rate": 0.0, "df_count": 0, "total": 6}, {"name": "Geometry 1-2", "df_rate": 0.0, "df_count": 0, "total": 5}]}, "score_income": {"quartiles": [{"label": "$19K\u2013$38K", "avg": 74.2, "n": 52}, {"label": "$38K\u2013$44K", "avg": 76.1, "n": 47}, {"label": "$44K\u2013$48K", "avg": 85.9, "n": 26}, {"label": "$48K\u2013$97K", "avg": 80.7, "n": 29}], "correlation": 0.259}, "df_income": {"quartiles": [{"label": "$19K\u2013$38K", "df_rate": 40.4, "df_count": 21, "n": 52}, {"label": "$38K\u2013$44K", "df_rate": 38.3, "df_count": 18, "n": 47}, {"label": "$44K\u2013$48K", "df_rate": 15.4, "df_count": 4, "n": 26}, {"label": "$48K\u2013$97K", "df_rate": 24.1, "df_count": 7, "n": 29}]}, "race_income": {"quartiles": [{"label": "$19K\u2013$38K", "n": 49, "White": 32.7, "Black": 55.1, "Hispanic/Latino": 6.1, "Asian": 2.0, "Two or More": 4.1}, {"label": "$38K\u2013$44K", "n": 44, "White": 25.0, "Black": 50.0, "Hispanic/Latino": 15.9, "Asian": 9.1, "Two or More": 0.0}, {"label": "$44K\u2013$48K", "n": 23, "White": 65.2, "Black": 26.1, "Hispanic/Latino": 0.0, "Asian": 0.0, "Two or More": 8.7}, {"label": "$48K\u2013$97K", "n": 25, "White": 72.0, "Black": 12.0, "Hispanic/Latino": 0.0, "Asian": 12.0, "Two or More": 0.0}], "races": ["White", "Black", "Hispanic/Latino", "Asian", "Two or More"]}, "df_race": {"groups": [{"race": "Black", "df_rate": 51.6, "df_count": 32, "n": 62}, {"race": "Asian", "df_rate": 37.5, "df_count": 3, "n": 8}, {"race": "Hispanic/Latino", "df_rate": 30.0, "df_count": 3, "n": 10}, {"race": "White", "df_rate": 15.9, "df_count": 11, "n": 69}]}};
 Chart.defaults.color = '#a0aec0';
 Chart.defaults.borderColor = 'rgba(255,255,255,0.04)';
 Chart.defaults.font.family = 'Inter, sans-serif';
@@ -622,29 +622,68 @@ Chart.defaults.font.family = 'Inter, sans-serif';
   });
 }();
 
-// --- Grade Distribution by Race (Stacked % Bar) ---
+// --- Chart 1: Avg Math Score by Income Quartile ---
 !function(){
-  const g = CD.grade_dist_race.groups;
-  if(!g.length) return;
-  new Chart(document.getElementById('chartGradeRace'), {
+  const q = CD.score_income.quartiles;
+  if(!q.length) return;
+  const corr = CD.score_income.correlation;
+  new Chart(document.getElementById('chartScoreIncome'), {
     type:'bar',
     data:{
-      labels: g.map(d=>d.race+' ('+d.n+')'),
-      datasets:[
-        {label:'A', data:g.map(d=>d.A), backgroundColor:'#26de81'},
-        {label:'B', data:g.map(d=>d.B), backgroundColor:'#4a9eff'},
-        {label:'C', data:g.map(d=>d.C), backgroundColor:'#f7b731'},
-        {label:'D', data:g.map(d=>d.D), backgroundColor:'#fc8c3c'},
-        {label:'F', data:g.map(d=>d.F), backgroundColor:'#fc5c65'},
-      ]
+      labels: q.map(d=>d.label),
+      datasets:[{
+        label:'Avg Math %',
+        data:q.map(d=>d.avg),
+        backgroundColor:['#fc5c65','#fc8c3c','#f7b731','#26de81'],
+        borderRadius:4,
+      }]
     },
-    options:{responsive:true, plugins:{legend:{position:'top',labels:{boxWidth:10,padding:6,font:{size:10}}},tooltip:{callbacks:{label:function(ctx){return ctx.dataset.label+': '+ctx.raw+'%'}}}}, scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,max:100,title:{display:true,text:'% of Students'},grid:{color:'rgba(255,255,255,0.04)'}}}}
+    options:{responsive:true, plugins:{legend:{display:false},tooltip:{callbacks:{afterLabel:function(ctx){return q[ctx.dataIndex].n+' students'}}},subtitle:{display:true,text:'r = '+corr+' (income vs math score)',color:'#a0aec0',font:{size:10},padding:{bottom:4}}}, scales:{x:{title:{display:true,text:'Zip-Code Median Household Income'},grid:{display:false}},y:{title:{display:true,text:'Avg Math Score (%)'},min:50,max:100,grid:{color:'rgba(255,255,255,0.04)'}}}}
   });
 }();
 
-// --- D/F Rate by Race (Horizontal Bar) ---
+// --- Chart 2: Math D/F Rate by Income Quartile ---
 !function(){
-  const g = CD.df_rate_race.groups;
+  const q = CD.df_income.quartiles;
+  if(!q.length) return;
+  new Chart(document.getElementById('chartDFIncome'), {
+    type:'bar',
+    data:{
+      labels: q.map(d=>d.label),
+      datasets:[{
+        label:'D/F Rate %',
+        data:q.map(d=>d.df_rate),
+        backgroundColor: q.map(d=>d.df_rate>30?'#fc5c65':d.df_rate>15?'#fc8c3c':'#26de81'),
+        borderRadius:4,
+      }]
+    },
+    options:{responsive:true, plugins:{legend:{display:false},tooltip:{callbacks:{afterLabel:function(ctx){return q[ctx.dataIndex].df_count+'/'+q[ctx.dataIndex].n+' students'}}}}, scales:{x:{title:{display:true,text:'Zip-Code Median Household Income'},grid:{display:false}},y:{title:{display:true,text:'D/F Rate (%)'},max:60,grid:{color:'rgba(255,255,255,0.04)'}}}}
+  });
+}();
+
+// --- Chart 3: Race Composition by Income Quartile (Stacked %) ---
+!function(){
+  const d = CD.race_income;
+  if(!d.quartiles.length) return;
+  const raceColors = {'Black':'#4a9eff','White':'#26de81','Hispanic/Latino':'#f7b731','Asian':'#fc8c3c','Two or More':'#a855f7','Am. Indian/Alaska Native':'#ec4899','Unknown':'#718096'};
+  const datasets = d.races.map(race=>({
+    label:race,
+    data:d.quartiles.map(q=>q[race]||0),
+    backgroundColor:raceColors[race]||'#718096',
+  }));
+  new Chart(document.getElementById('chartRaceIncome'), {
+    type:'bar',
+    data:{
+      labels: d.quartiles.map(q=>q.label+'\n(n='+q.n+')'),
+      datasets: datasets,
+    },
+    options:{responsive:true, plugins:{legend:{position:'top',labels:{boxWidth:10,padding:6,font:{size:9}}},tooltip:{callbacks:{label:function(ctx){return ctx.dataset.label+': '+ctx.raw+'%'}}}}, scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,max:100,title:{display:true,text:'% of Students'},grid:{color:'rgba(255,255,255,0.04)'}}}}
+  });
+}();
+
+// --- Chart 4: Math D/F Rate by Race ---
+!function(){
+  const g = CD.df_race.groups;
   if(!g.length) return;
   new Chart(document.getElementById('chartDFRace'), {
     type:'bar',
@@ -657,49 +696,7 @@ Chart.defaults.font.family = 'Inter, sans-serif';
         borderRadius:4,
       }]
     },
-    options:{indexAxis:'y', responsive:true, plugins:{legend:{display:false},tooltip:{callbacks:{afterLabel:function(ctx){return g[ctx.dataIndex].df_count+'/'+g[ctx.dataIndex].n+' students'}}}}, scales:{x:{title:{display:true,text:'D/F Rate (%)'},max:60,grid:{color:'rgba(255,255,255,0.04)'}},y:{grid:{display:false}}}}
-  });
-}();
-
-// --- GPA by Income Quartile ---
-!function(){
-  const q = CD.income_q.quartiles;
-  if(!q.length) return;
-  const corr = CD.income_q.correlation;
-  new Chart(document.getElementById('chartIncomeQ'), {
-    type:'bar',
-    data:{
-      labels: q.map(d=>d.label),
-      datasets:[{
-        label:'Avg GPA',
-        data:q.map(d=>d.gpa),
-        backgroundColor:['#fc5c65','#fc8c3c','#f7b731','#26de81'],
-        borderRadius:4,
-      }]
-    },
-    options:{responsive:true, plugins:{legend:{display:false},tooltip:{callbacks:{afterLabel:function(ctx){return q[ctx.dataIndex].n+' students'}}},subtitle:{display:true,text:'r = '+corr,color:'#a0aec0',font:{size:11},padding:{bottom:4}}}, scales:{x:{title:{display:true,text:'Zip-Code Median Income Quartile'},grid:{display:false}},y:{title:{display:true,text:'Average GPA'},min:2,max:4.5,grid:{color:'rgba(255,255,255,0.04)'}}}}
-  });
-}();
-
-// --- Income vs GPA Bubble Chart by Zip ---
-!function(){
-  const b = CD.bubble_zip.bubbles;
-  if(!b.length) return;
-  const corr = CD.bubble_zip.correlation;
-  const maxR = Math.max(...b.map(d=>d.r));
-  new Chart(document.getElementById('chartBubbleZip'), {
-    type:'bubble',
-    data:{
-      datasets:[{
-        label:'r = '+corr,
-        data:b.map(d=>({x:d.x, y:d.y, r:Math.max(4,Math.sqrt(d.r/maxR)*22)})),
-        backgroundColor:'rgba(74,158,255,0.45)',
-        borderColor:'#4a9eff',
-        borderWidth:1,
-        hoverBackgroundColor:'rgba(74,158,255,0.7)',
-      }]
-    },
-    options:{responsive:true, plugins:{legend:{display:true,labels:{font:{size:10}}},tooltip:{callbacks:{title:function(ctx){return b[ctx[0].dataIndex].zip},label:function(ctx){const d=b[ctx.dataIndex];return['Income: $'+d.x.toLocaleString(),'GPA: '+d.y,'Students: '+d.r]}}}}, scales:{x:{title:{display:true,text:'Median Household Income ($)'},ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'K'},grid:{color:'rgba(255,255,255,0.04)'}},y:{title:{display:true,text:'Average GPA'},min:2,max:4.5,grid:{color:'rgba(255,255,255,0.04)'}}}}
+    options:{indexAxis:'y', responsive:true, plugins:{legend:{display:false},tooltip:{callbacks:{afterLabel:function(ctx){return g[ctx.dataIndex].df_count+'/'+g[ctx.dataIndex].n+' students'}}}}, scales:{x:{title:{display:true,text:'Math D/F Rate (%)'},max:60,grid:{color:'rgba(255,255,255,0.04)'}},y:{grid:{display:false}}}}
   });
 }();
 
