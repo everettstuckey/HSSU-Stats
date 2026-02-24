@@ -25,10 +25,22 @@ The presentation includes analysis of:
 ## Scripts
 
 - `build_presentation.py` — Generates `index.html` from Focus SIS grade data and census income data
-- `focus_historical_scraper.py` — Scrapes historical math grades and student demographics from Focus SIS (requires credentials)
+- `../focus_login_hssu.py` — Fork of `focus_login.py` with added commands for demographics and historical grade export
 
-## Regenerate
+## Data Collection
 
 ```bash
-python build_presentation.py
+# Export student demographics (race, zip code)
+python focus_login_hssu.py export-demographics --headed
+
+# Export 10 years of historical math grades
+python focus_login_hssu.py export-history --years 10 --headed
+```
+
+Both commands output to `focus_downloads/` and use the same SSO auth as the ICU dashboard pipeline.
+
+## Regenerate Presentation
+
+```bash
+python HSSU-Stats/build_presentation.py
 ```

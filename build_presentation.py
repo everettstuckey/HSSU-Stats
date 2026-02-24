@@ -19,7 +19,6 @@ ROOT = Path(__file__).resolve().parent.parent
 FOCUS_DL = ROOT / "focus_downloads"
 AFFLUENCE = ROOT / "affluence_analysis_results"
 OUT_DIR = Path(__file__).resolve().parent
-HIST_DIR = OUT_DIR / "data"        # historical scraper output
 
 # ---------------------------------------------------------------------------
 # Data loading helpers
@@ -58,16 +57,16 @@ def load_zip_income() -> pd.DataFrame:
 
 
 def load_historical_data() -> Optional[pd.DataFrame]:
-    """Load historical math grades if available from the scraper."""
-    p = HIST_DIR / "historical_math_grades.csv"
+    """Load historical math grades if available (from focus_login_hssu.py export-history)."""
+    p = FOCUS_DL / "historical_math_grades.csv"
     if p.exists():
         return pd.read_csv(p)
     return None
 
 
 def load_demographics() -> Optional[pd.DataFrame]:
-    """Load student demographics if available from the scraper."""
-    p = HIST_DIR / "student_demographics.csv"
+    """Load student demographics if available (from focus_login_hssu.py export-demographics)."""
+    p = FOCUS_DL / "student_demographics.csv"
     if p.exists():
         return pd.read_csv(p)
     return None
