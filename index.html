@@ -17,8 +17,8 @@
     --radius: 12px;
   }
   * { margin:0; padding:0; box-sizing:border-box; }
-  html { scroll-behavior:smooth; font-size:16px; }
-  body { font-family:'Inter',sans-serif; background:var(--navy); color:var(--text); line-height:1.6; }
+  html { font-size:16px; }
+  body { font-family:'Inter',sans-serif; background:var(--navy); color:var(--text); line-height:1.6; height:100vh; overflow:hidden; }
 
   /* Navigation */
   nav { position:fixed; top:0; left:0; right:0; z-index:100; background:rgba(10,22,40,.92); backdrop-filter:blur(12px); border-bottom:1px solid rgba(201,162,39,.15); padding:12px 24px; display:flex; justify-content:space-between; align-items:center; }
@@ -29,7 +29,8 @@
   nav .dot:hover { border-color:var(--gold); }
 
   /* Slides */
-  .slide { height:100vh; padding:56px 4vw 16px; display:flex; flex-direction:column; justify-content:center; position:relative; overflow:hidden; }
+  .slide { height:100vh; padding:56px 4vw 16px; display:flex; flex-direction:column; justify-content:center; position:absolute; top:0; left:0; width:100%; overflow:hidden; opacity:0; pointer-events:none; transition:opacity .35s ease; }
+  .slide.active { opacity:1; pointer-events:auto; z-index:1; }
   .slide:nth-child(even) { background:var(--navy2); }
   .slide-inner { width:100%; transform-origin:top center; }
 
@@ -117,7 +118,7 @@
 
   /* Responsive */
   @media (max-width:640px) {
-    .slide { padding:52px 12px 12px; }
+    .slide { padding:52px 12px 12px; height:100vh; }
     .grid2, .grid3 { grid-template-columns:1fr; }
     .slide-nav button { width:26px; height:26px; font-size:.75rem; }
   }
@@ -723,7 +724,7 @@ Chart.defaults.font.family = 'Inter, sans-serif';
 
   function goTo(idx){
     cur=Math.max(0,Math.min(slides.length-1,idx));
-    slides[cur].scrollIntoView({behavior:'smooth'});
+    slides.forEach((s,i)=>s.classList.toggle('active',i===cur));
     sync();
   }
   function sync(){
@@ -750,16 +751,7 @@ Chart.defaults.font.family = 'Inter, sans-serif';
     if(e.key==='End'){e.preventDefault();goTo(slides.length-1);}
   });
 
-  // Sync on scroll
-  const obs=new IntersectionObserver(entries=>{
-    entries.forEach(e=>{
-      if(e.isIntersecting){
-        cur=[...slides].indexOf(e.target);
-        sync();
-      }
-    });
-  },{threshold:0.5});
-  slides.forEach(s=>obs.observe(s));
+  slides[0].classList.add('active');
   sync();
 }();
 
