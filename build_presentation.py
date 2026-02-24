@@ -194,6 +194,95 @@ def df_rate_by_course(mdf: pd.DataFrame) -> dict:
     return {"courses": results}
 
 
+def race_grade_analysis(mdf: pd.DataFrame, demo: pd.DataFrame) -> dict:
+    """Average math grade by race, merging demographics with grades."""
+    if mdf.empty or demo is None or demo.empty:
+        return {"groups": []}
+
+    # Derive primary race from individual flags
+    def primary_race(row):
+        if row.get("Single_Ethnicity") == "Hispanic":
+            return "Hispanic/Latino"
+        if row.get("Race_Black") == "Yes" and row.get("Race_White") == "Yes":
+            return "Two or More"
+        if row.get("Race_Black") == "Yes":
+            return "Black"
+        if row.get("Race_White") == "Yes":
+            return "White"
+        if row.get("Race_Asian") == "Yes":
+            return "Asian"
+        if row.get("Race_AmIndian") == "Yes":
+            return "Am. Indian/Alaska Native"
+        if row.get("Race_Pacific") == "Yes":
+            return "Pacific Islander"
+        eth = str(row.get("Single_Ethnicity", "")).strip()
+        if eth and eth != "nan":
+            return eth
+        return "Unknown"
+
+    demo = demo.copy()
+    demo["Race"] = demo.apply(primary_race, axis=1)
+
+    # Merge on Student ID
+    grade_col = "Semester 1 (%)"
+    if grade_col not in mdf.columns:
+        grade_col = "Quarter 2 (%)"
+    if grade_col not in mdf.columns:
+        return {"groups": []}
+
+    merged = mdf.merge(
+        demo[["StudentID", "Race"]],
+        left_on="Student ID", right_on="StudentID", how="inner",
+    )
+    if merged.empty:
+        return {"groups": []}
+
+    agg = merged.groupby("Race")[grade_col].agg(["mean", "count"]).reset_index()
+    agg = agg[agg["count"] >= 3].sort_values("mean", ascending=False)
+    groups = []
+    for _, r in agg.iterrows():
+        groups.append({
+            "race": r["Race"],
+            "avg": round(float(r["mean"]), 1),
+            "n": int(r["count"]),
+        })
+    return {"groups": groups}
+
+
+def demographic_summary(demo: pd.DataFrame) -> dict:
+    """School demographic composition for a pie/doughnut chart."""
+    if demo is None or demo.empty:
+        return {"groups": []}
+
+    def primary_race(row):
+        if row.get("Single_Ethnicity") == "Hispanic":
+            return "Hispanic/Latino"
+        if row.get("Race_Black") == "Yes" and row.get("Race_White") == "Yes":
+            return "Two or More"
+        if row.get("Race_Black") == "Yes":
+            return "Black"
+        if row.get("Race_White") == "Yes":
+            return "White"
+        if row.get("Race_Asian") == "Yes":
+            return "Asian"
+        if row.get("Race_AmIndian") == "Yes":
+            return "Am. Indian/Alaska Native"
+        if row.get("Race_Pacific") == "Yes":
+            return "Pacific Islander"
+        eth = str(row.get("Single_Ethnicity", "")).strip()
+        if eth and eth != "nan":
+            return eth
+        return "Unknown"
+
+    demo = demo.copy()
+    demo["Race"] = demo.apply(primary_race, axis=1)
+    counts = demo["Race"].value_counts()
+    groups = []
+    for race, n in counts.items():
+        groups.append({"race": race, "n": int(n)})
+    return {"groups": groups}
+
+
 # ---------------------------------------------------------------------------
 # HTML slide template
 # ---------------------------------------------------------------------------
@@ -534,10 +623,20 @@ def build_html(chart_data: dict) -> str:
 <section class="slide" id="s4">
   <div class="sec-hdr">
     <div class="num">04 &mdash; Equity &amp; Access</div>
-    <h2>Income, Geography &amp; Math Achievement</h2>
-    <p>Analyzing the relationship between students' zip code, median household income, and academic performance to understand the equity landscape.</p>
+    <h2>Race, Income &amp; Math Achievement</h2>
+    <p>Analyzing the relationship between student demographics, zip code, median household income, and academic performance to understand the equity landscape.</p>
   </div>
   <div class="grid2">
+    <div class="card">
+      <h3>Student Demographics</h3>
+      <div class="chart-wrap"><canvas id="chartDemoComp"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Average Math Score by Race/Ethnicity</h3>
+      <div class="chart-wrap"><canvas id="chartRaceGrades"></canvas></div>
+    </div>
+  </div>
+  <div class="grid2" style="margin-top:20px">
     <div class="card">
       <h3>Median Income vs. GPA by Zip Code</h3>
       <div class="chart-wrap"><canvas id="chartIncomeGPA"></canvas></div>
@@ -551,10 +650,10 @@ def build_html(chart_data: dict) -> str:
     <h3>What This Means for the HSSU Partnership</h3>
     <div class="grid3" style="margin-top:12px">
       <div>
-        <p style="font-size:.85rem;color:var(--text2)"><strong style="color:var(--danger)">Income-correlated achievement gaps</strong> show that students from lower-income zip codes face systemic barriers to math success. Traditional statistics courses at community colleges require transportation and scheduling that disadvantage these students.</p>
+        <p style="font-size:.85rem;color:var(--text2)"><strong style="color:var(--danger)">Achievement gaps across race and income</strong> show that students from underrepresented groups and lower-income zip codes face systemic barriers to math success. Traditional statistics courses at community colleges require transportation and scheduling that disadvantage these students.</p>
       </div>
       <div>
-        <p style="font-size:.85rem;color:var(--text2)"><strong style="color:var(--gold)">On-site HSSU instruction</strong> at CSMB eliminates transportation barriers while providing university-quality instruction. As an HBCU, Harris-Stowe brings culturally responsive pedagogy and mentorship.</p>
+        <p style="font-size:.85rem;color:var(--text2)"><strong style="color:var(--gold)">On-site HSSU instruction</strong> at CSMB eliminates transportation barriers while providing university-quality instruction. As an HBCU, Harris-Stowe brings culturally responsive pedagogy and mentorship that directly serves CSMB's diverse student body.</p>
       </div>
       <div>
         <p style="font-size:.85rem;color:var(--text2)"><strong style="color:var(--ok)">Data science skills are equalizers.</strong> R programming and statistical analysis are high-value, high-demand skills that open doors regardless of background. This partnership creates access to those skills early.</p>
@@ -747,6 +846,45 @@ Chart.defaults.font.family = 'Inter, sans-serif';
   });
 }();
 
+// --- Demographic Composition Doughnut ---
+!function(){
+  const g = CD.demo_summary.groups;
+  if(!g.length) return;
+  const raceColors = {'Black':'#4a9eff','White':'#26de81','Hispanic/Latino':'#f7b731','Asian':'#fc8c3c','Two or More':'#a855f7','Am. Indian/Alaska Native':'#ec4899','Pacific Islander':'#06b6d4','Unknown':'#718096'};
+  new Chart(document.getElementById('chartDemoComp'), {
+    type:'doughnut',
+    data:{
+      labels: g.map(d=>d.race+' ('+d.n+')'),
+      datasets:[{
+        data:g.map(d=>d.n),
+        backgroundColor:g.map(d=>raceColors[d.race]||'#718096'),
+        borderWidth:0,
+      }]
+    },
+    options:{responsive:true, plugins:{legend:{position:'right',labels:{boxWidth:12,padding:8,font:{size:11},color:'#a0aec0'}}}}
+  });
+}();
+
+// --- Race x Grades Bar ---
+!function(){
+  const g = CD.race_grades.groups;
+  if(!g.length) return;
+  const raceColors = {'Black':'#4a9eff','White':'#26de81','Hispanic/Latino':'#f7b731','Asian':'#fc8c3c','Two or More':'#a855f7','Am. Indian/Alaska Native':'#ec4899','Unknown':'#718096'};
+  new Chart(document.getElementById('chartRaceGrades'), {
+    type:'bar',
+    data:{
+      labels: g.map(d=>d.race),
+      datasets:[{
+        label:'Avg Math %',
+        data:g.map(d=>d.avg),
+        backgroundColor:g.map(d=>raceColors[d.race]||'#718096'),
+        borderRadius:4,
+      }]
+    },
+    options:{indexAxis:'y', responsive:true, plugins:{legend:{display:false},tooltip:{callbacks:{afterLabel:function(ctx){return g[ctx.dataIndex].n+' students'}}}}, scales:{x:{title:{display:true,text:'Average Score (%)'},min:40,max:100,grid:{color:'rgba(255,255,255,0.04)'}},y:{grid:{display:false}}}}
+  });
+}();
+
 // --- Income vs GPA Scatter ---
 !function(){
   const pts = CD.income_gpa.points;
@@ -821,9 +959,12 @@ def main():
     adf = load_affluence_data()
     zdf = load_zip_income()
 
+    demo = load_demographics()
+
     print(f"  Math grades: {len(mdf)} rows")
     print(f"  Affluence data: {len(adf)} students")
     print(f"  Zip analysis: {len(zdf)} rows")
+    print(f"  Demographics: {len(demo) if demo is not None else 0} students")
 
     # Build chart data
     chart_data = {
@@ -832,6 +973,8 @@ def main():
         "df_rate": df_rate_by_course(mdf),
         "income_gpa": income_gpa_correlation(adf),
         "zip_gpa": zip_gpa_analysis(zdf),
+        "race_grades": race_grade_analysis(mdf, demo),
+        "demo_summary": demographic_summary(demo),
     }
 
     html = build_html(chart_data)
