@@ -125,41 +125,56 @@ def math_grade_by_course(mdf: pd.DataFrame) -> dict:
     return {"courses": courses, "col_used": col}
 
 
-def income_gpa_correlation(adf: pd.DataFrame) -> dict:
-    """Zip-code median income vs GPA scatter data."""
+def income_quartile_gpa(adf: pd.DataFrame) -> dict:
+    """Average GPA by household-income quartile (based on zip median income)."""
     if adf.empty:
-        return {"points": [], "correlation": 0}
+        return {"quartiles": [], "correlation": 0}
     valid = adf.dropna(subset=["MedianZipIncome", "Acum-GPA"])
-    if len(valid) < 5:
-        return {"points": [], "correlation": 0}
+    if len(valid) < 8:
+        return {"quartiles": [], "correlation": 0}
     corr = float(valid["MedianZipIncome"].corr(valid["Acum-GPA"]))
-    pts = []
-    for _, r in valid.iterrows():
-        pts.append({
-            "x": round(float(r["MedianZipIncome"]), 0),
-            "y": round(float(r["Acum-GPA"]), 2),
-            "gl": int(r.get("GradeLevel", 0)),
-        })
-    return {"points": pts, "correlation": round(corr, 3)}
-
-
-def zip_gpa_analysis(zdf: pd.DataFrame) -> dict:
-    """GPA by zip code bar chart data."""
-    if zdf.empty:
-        return {"zips": []}
-    agg = zdf.groupby("ZipCode").agg(
-        Mean_GPA=("Mean_GPA", "mean"),
-        Students=("Student_Count", "sum"),
+    valid = valid.copy()
+    valid["IncomeQ"] = pd.qcut(valid["MedianZipIncome"], q=4, duplicates="drop")
+    agg = valid.groupby("IncomeQ", observed=True).agg(
+        avg_gpa=("Acum-GPA", "mean"),
+        n=("Acum-GPA", "count"),
+        avg_income=("MedianZipIncome", "mean"),
     ).reset_index()
-    agg = agg[agg["Students"] >= 3].sort_values("Mean_GPA", ascending=False)
-    zips = []
+    quartiles = []
     for _, r in agg.iterrows():
-        zips.append({
-            "zip": str(int(r["ZipCode"])),
-            "gpa": round(float(r["Mean_GPA"]), 2),
-            "n": int(r["Students"]),
+        lo, hi = r["IncomeQ"].left, r["IncomeQ"].right
+        quartiles.append({
+            "label": f"${int(lo/1000)}K–${int(hi/1000)}K",
+            "gpa": round(float(r["avg_gpa"]), 2),
+            "n": int(r["n"]),
+            "income": round(float(r["avg_income"]), 0),
         })
-    return {"zips": zips}
+    return {"quartiles": quartiles, "correlation": round(corr, 3)}
+
+
+def bubble_by_zip(adf: pd.DataFrame) -> dict:
+    """Bubble chart: each zip = one bubble, x=median income, y=avg GPA, size=student count."""
+    if adf.empty:
+        return {"bubbles": [], "correlation": 0}
+    valid = adf.dropna(subset=["MedianZipIncome", "Acum-GPA", "ZipCode"])
+    if len(valid) < 5:
+        return {"bubbles": [], "correlation": 0}
+    corr = float(valid["MedianZipIncome"].corr(valid["Acum-GPA"]))
+    agg = valid.groupby("ZipCode").agg(
+        income=("MedianZipIncome", "first"),
+        gpa=("Acum-GPA", "mean"),
+        n=("Acum-GPA", "count"),
+    ).reset_index()
+    agg = agg[agg["n"] >= 2].sort_values("income")
+    bubbles = []
+    for _, r in agg.iterrows():
+        bubbles.append({
+            "zip": str(int(r["ZipCode"])),
+            "x": round(float(r["income"]), 0),
+            "y": round(float(r["gpa"]), 2),
+            "r": int(r["n"]),
+        })
+    return {"bubbles": bubbles, "correlation": round(corr, 3)}
 
 
 def df_rate_by_course(mdf: pd.DataFrame) -> dict:
@@ -194,92 +209,92 @@ def df_rate_by_course(mdf: pd.DataFrame) -> dict:
     return {"courses": results}
 
 
-def race_grade_analysis(mdf: pd.DataFrame, demo: pd.DataFrame) -> dict:
-    """Average math grade by race, merging demographics with grades."""
+def _primary_race(row):
+    """Derive a single race label from demographic flag columns."""
+    if row.get("Single_Ethnicity") == "Hispanic":
+        return "Hispanic/Latino"
+    if row.get("Race_Black") == "Yes" and row.get("Race_White") == "Yes":
+        return "Two or More"
+    if row.get("Race_Black") == "Yes":
+        return "Black"
+    if row.get("Race_White") == "Yes":
+        return "White"
+    if row.get("Race_Asian") == "Yes":
+        return "Asian"
+    if row.get("Race_AmIndian") == "Yes":
+        return "Am. Indian/Alaska Native"
+    if row.get("Race_Pacific") == "Yes":
+        return "Pacific Islander"
+    eth = str(row.get("Single_Ethnicity", "")).strip()
+    if eth and eth != "nan":
+        return eth
+    return "Unknown"
+
+
+def grade_dist_by_race(mdf: pd.DataFrame, demo: pd.DataFrame) -> dict:
+    """A/B/C/D/F distribution (%) per racial group — stacked bar chart."""
     if mdf.empty or demo is None or demo.empty:
         return {"groups": []}
-
-    # Derive primary race from individual flags
-    def primary_race(row):
-        if row.get("Single_Ethnicity") == "Hispanic":
-            return "Hispanic/Latino"
-        if row.get("Race_Black") == "Yes" and row.get("Race_White") == "Yes":
-            return "Two or More"
-        if row.get("Race_Black") == "Yes":
-            return "Black"
-        if row.get("Race_White") == "Yes":
-            return "White"
-        if row.get("Race_Asian") == "Yes":
-            return "Asian"
-        if row.get("Race_AmIndian") == "Yes":
-            return "Am. Indian/Alaska Native"
-        if row.get("Race_Pacific") == "Yes":
-            return "Pacific Islander"
-        eth = str(row.get("Single_Ethnicity", "")).strip()
-        if eth and eth != "nan":
-            return eth
-        return "Unknown"
-
     demo = demo.copy()
-    demo["Race"] = demo.apply(primary_race, axis=1)
-
-    # Merge on Student ID
-    grade_col = "Semester 1 (%)"
-    if grade_col not in mdf.columns:
-        grade_col = "Quarter 2 (%)"
-    if grade_col not in mdf.columns:
+    demo["Race"] = demo.apply(_primary_race, axis=1)
+    ltr_col = "Semester 1 (Letter)"
+    if ltr_col not in mdf.columns:
+        ltr_col = "Quarter 2 (Letter)"
+    if ltr_col not in mdf.columns:
         return {"groups": []}
-
-    merged = mdf.merge(
-        demo[["StudentID", "Race"]],
-        left_on="Student ID", right_on="StudentID", how="inner",
-    )
+    merged = mdf.merge(demo[["StudentID", "Race"]], left_on="Student ID",
+                       right_on="StudentID", how="inner")
     if merged.empty:
         return {"groups": []}
-
-    agg = merged.groupby("Race")[grade_col].agg(["mean", "count"]).reset_index()
-    agg = agg[agg["count"] >= 3].sort_values("mean", ascending=False)
     groups = []
-    for _, r in agg.iterrows():
+    for race, grp in merged.groupby("Race"):
+        valid = grp[ltr_col].dropna()
+        total = len(valid)
+        if total < 5:
+            continue
+        dist = valid.value_counts()
         groups.append({
-            "race": r["Race"],
-            "avg": round(float(r["mean"]), 1),
-            "n": int(r["count"]),
+            "race": race,
+            "n": total,
+            "A": round(float(dist.get("A", 0)) / total * 100, 1),
+            "B": round(float(dist.get("B", 0)) / total * 100, 1),
+            "C": round(float(dist.get("C", 0)) / total * 100, 1),
+            "D": round(float(dist.get("D", 0)) / total * 100, 1),
+            "F": round(float(dist.get("F", 0)) / total * 100, 1),
         })
+    groups.sort(key=lambda g: g["F"], reverse=True)
     return {"groups": groups}
 
 
-def demographic_summary(demo: pd.DataFrame) -> dict:
-    """School demographic composition for a pie/doughnut chart."""
-    if demo is None or demo.empty:
+def df_rate_by_race(mdf: pd.DataFrame, demo: pd.DataFrame) -> dict:
+    """D/F rate per racial group — horizontal bar chart."""
+    if mdf.empty or demo is None or demo.empty:
         return {"groups": []}
-
-    def primary_race(row):
-        if row.get("Single_Ethnicity") == "Hispanic":
-            return "Hispanic/Latino"
-        if row.get("Race_Black") == "Yes" and row.get("Race_White") == "Yes":
-            return "Two or More"
-        if row.get("Race_Black") == "Yes":
-            return "Black"
-        if row.get("Race_White") == "Yes":
-            return "White"
-        if row.get("Race_Asian") == "Yes":
-            return "Asian"
-        if row.get("Race_AmIndian") == "Yes":
-            return "Am. Indian/Alaska Native"
-        if row.get("Race_Pacific") == "Yes":
-            return "Pacific Islander"
-        eth = str(row.get("Single_Ethnicity", "")).strip()
-        if eth and eth != "nan":
-            return eth
-        return "Unknown"
-
     demo = demo.copy()
-    demo["Race"] = demo.apply(primary_race, axis=1)
-    counts = demo["Race"].value_counts()
+    demo["Race"] = demo.apply(_primary_race, axis=1)
+    ltr_col = "Semester 1 (Letter)"
+    if ltr_col not in mdf.columns:
+        ltr_col = "Quarter 2 (Letter)"
+    if ltr_col not in mdf.columns:
+        return {"groups": []}
+    merged = mdf.merge(demo[["StudentID", "Race"]], left_on="Student ID",
+                       right_on="StudentID", how="inner")
+    if merged.empty:
+        return {"groups": []}
     groups = []
-    for race, n in counts.items():
-        groups.append({"race": race, "n": int(n)})
+    for race, grp in merged.groupby("Race"):
+        valid = grp[ltr_col].dropna()
+        total = len(valid)
+        if total < 5:
+            continue
+        df_n = int(valid.isin(["D", "F"]).sum())
+        groups.append({
+            "race": race,
+            "df_rate": round(float(df_n) / total * 100, 1),
+            "df_count": df_n,
+            "n": total,
+        })
+    groups.sort(key=lambda g: g["df_rate"], reverse=True)
     return {"groups": groups}
 
 
@@ -636,39 +651,39 @@ def build_html(chart_data: dict) -> str:
   <div class="sec-hdr">
     <div class="num">04 &mdash; Equity &amp; Access</div>
     <h2>Race, Income &amp; Math Achievement</h2>
-    <p>Analyzing the relationship between student demographics, zip code, median household income, and academic performance to understand the equity landscape.</p>
+    <p>Grade outcomes broken down by race and household income reveal where the gaps are &mdash; and why on-site HSSU instruction matters.</p>
   </div>
   <div class="grid2">
     <div class="card">
-      <h3>Student Demographics</h3>
-      <div class="chart-wrap"><canvas id="chartDemoComp"></canvas></div>
+      <h3>Math Grade Distribution by Race</h3>
+      <div class="chart-wrap"><canvas id="chartGradeRace"></canvas></div>
     </div>
     <div class="card">
-      <h3>Average Math Score by Race/Ethnicity</h3>
-      <div class="chart-wrap"><canvas id="chartRaceGrades"></canvas></div>
+      <h3>D/F Rate by Race/Ethnicity</h3>
+      <div class="chart-wrap"><canvas id="chartDFRace"></canvas></div>
     </div>
   </div>
   <div class="grid2" style="margin-top:8px">
     <div class="card">
-      <h3>Median Income vs. GPA by Zip Code</h3>
-      <div class="chart-wrap"><canvas id="chartIncomeGPA"></canvas></div>
+      <h3>Average GPA by Income Quartile</h3>
+      <div class="chart-wrap"><canvas id="chartIncomeQ"></canvas></div>
     </div>
     <div class="card">
-      <h3>GPA by Zip Code</h3>
-      <div class="chart-wrap"><canvas id="chartZipGPA"></canvas></div>
+      <h3>Income vs. GPA by Zip Code</h3>
+      <div class="chart-wrap"><canvas id="chartBubbleZip"></canvas></div>
     </div>
   </div>
   <div class="card" style="margin-top:8px">
     <h3>What This Means for the HSSU Partnership</h3>
     <div class="grid3" style="margin-top:6px">
       <div>
-        <p style="font-size:.74rem;color:var(--text2);line-height:1.35"><strong style="color:var(--danger)">Achievement gaps across race and income</strong> show that students from underrepresented groups and lower-income zip codes face systemic barriers to math success. Traditional statistics courses at community colleges require transportation and scheduling that disadvantage these students.</p>
+        <p style="font-size:.74rem;color:var(--text2);line-height:1.35"><strong style="color:var(--danger)">D/F rates vary sharply by race</strong>, showing systemic barriers to math success. Traditional off-site statistics courses add transportation and scheduling burdens that widen these gaps.</p>
       </div>
       <div>
-        <p style="font-size:.74rem;color:var(--text2);line-height:1.35"><strong style="color:var(--gold)">On-site HSSU instruction</strong> at CSMB eliminates transportation barriers while providing university-quality instruction. As an HBCU, Harris-Stowe brings culturally responsive pedagogy and mentorship that directly serves CSMB's diverse student body.</p>
+        <p style="font-size:.74rem;color:var(--text2);line-height:1.35"><strong style="color:var(--gold)">On-site HSSU instruction</strong> at CSMB eliminates transportation barriers. As an HBCU, Harris-Stowe brings culturally responsive pedagogy and mentorship that directly serves CSMB's diverse student body.</p>
       </div>
       <div>
-        <p style="font-size:.74rem;color:var(--text2);line-height:1.35"><strong style="color:var(--ok)">Data science skills are equalizers.</strong> R programming and statistical analysis are high-value, high-demand skills that open doors regardless of background. This partnership creates access to those skills early.</p>
+        <p style="font-size:.74rem;color:var(--text2);line-height:1.35"><strong style="color:var(--ok)">Income quartile data</strong> shows whether zip-code economics correlate with GPA. Either way, data science skills are high-value equalizers that open doors regardless of background.</p>
       </div>
     </div>
   </div>
@@ -913,81 +928,84 @@ Chart.defaults.font.family = 'Inter, sans-serif';
   });
 }();
 
-// --- Demographic Composition Doughnut ---
+// --- Grade Distribution by Race (Stacked % Bar) ---
 !function(){
-  const g = CD.demo_summary.groups;
+  const g = CD.grade_dist_race.groups;
   if(!g.length) return;
-  const raceColors = {'Black':'#4a9eff','White':'#26de81','Hispanic/Latino':'#f7b731','Asian':'#fc8c3c','Two or More':'#a855f7','Am. Indian/Alaska Native':'#ec4899','Pacific Islander':'#06b6d4','Unknown':'#718096'};
-  new Chart(document.getElementById('chartDemoComp'), {
-    type:'doughnut',
+  new Chart(document.getElementById('chartGradeRace'), {
+    type:'bar',
     data:{
       labels: g.map(d=>d.race+' ('+d.n+')'),
-      datasets:[{
-        data:g.map(d=>d.n),
-        backgroundColor:g.map(d=>raceColors[d.race]||'#718096'),
-        borderWidth:0,
-      }]
+      datasets:[
+        {label:'A', data:g.map(d=>d.A), backgroundColor:'#26de81'},
+        {label:'B', data:g.map(d=>d.B), backgroundColor:'#4a9eff'},
+        {label:'C', data:g.map(d=>d.C), backgroundColor:'#f7b731'},
+        {label:'D', data:g.map(d=>d.D), backgroundColor:'#fc8c3c'},
+        {label:'F', data:g.map(d=>d.F), backgroundColor:'#fc5c65'},
+      ]
     },
-    options:{responsive:true, plugins:{legend:{position:'right',labels:{boxWidth:12,padding:8,font:{size:11},color:'#a0aec0'}}}}
+    options:{responsive:true, plugins:{legend:{position:'top',labels:{boxWidth:10,padding:6,font:{size:10}}},tooltip:{callbacks:{label:function(ctx){return ctx.dataset.label+': '+ctx.raw+'%'}}}}, scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,max:100,title:{display:true,text:'% of Students'},grid:{color:'rgba(255,255,255,0.04)'}}}}
   });
 }();
 
-// --- Race x Grades Bar ---
+// --- D/F Rate by Race (Horizontal Bar) ---
 !function(){
-  const g = CD.race_grades.groups;
+  const g = CD.df_rate_race.groups;
   if(!g.length) return;
-  const raceColors = {'Black':'#4a9eff','White':'#26de81','Hispanic/Latino':'#f7b731','Asian':'#fc8c3c','Two or More':'#a855f7','Am. Indian/Alaska Native':'#ec4899','Unknown':'#718096'};
-  new Chart(document.getElementById('chartRaceGrades'), {
+  new Chart(document.getElementById('chartDFRace'), {
     type:'bar',
     data:{
       labels: g.map(d=>d.race),
       datasets:[{
-        label:'Avg Math %',
-        data:g.map(d=>d.avg),
-        backgroundColor:g.map(d=>raceColors[d.race]||'#718096'),
+        label:'D/F Rate %',
+        data:g.map(d=>d.df_rate),
+        backgroundColor: g.map(d=>d.df_rate>30?'#fc5c65':d.df_rate>15?'#fc8c3c':'#26de81'),
         borderRadius:4,
       }]
     },
-    options:{indexAxis:'y', responsive:true, plugins:{legend:{display:false},tooltip:{callbacks:{afterLabel:function(ctx){return g[ctx.dataIndex].n+' students'}}}}, scales:{x:{title:{display:true,text:'Average Score (%)'},min:40,max:100,grid:{color:'rgba(255,255,255,0.04)'}},y:{grid:{display:false}}}}
+    options:{indexAxis:'y', responsive:true, plugins:{legend:{display:false},tooltip:{callbacks:{afterLabel:function(ctx){return g[ctx.dataIndex].df_count+'/'+g[ctx.dataIndex].n+' students'}}}}, scales:{x:{title:{display:true,text:'D/F Rate (%)'},max:60,grid:{color:'rgba(255,255,255,0.04)'}},y:{grid:{display:false}}}}
   });
 }();
 
-// --- Income vs GPA Scatter ---
+// --- GPA by Income Quartile ---
 !function(){
-  const pts = CD.income_gpa.points;
-  if(!pts.length) return;
-  const corr = CD.income_gpa.correlation;
-  new Chart(document.getElementById('chartIncomeGPA'), {
-    type:'scatter',
-    data:{
-      datasets:[{
-        label:`r = ${corr}`,
-        data: pts.map(p=>({x:p.x, y:p.y})),
-        backgroundColor: pts.map(p=>p.gl===9?'#4a9eff':p.gl===10?'#f7b731':p.gl===11?'#26de81':'#fc5c65'),
-        pointRadius:5,
-        pointHoverRadius:7,
-      }]
-    },
-    options:{responsive:true, plugins:{legend:{display:true,labels:{font:{size:11}}}}, scales:{x:{title:{display:true,text:'Median Household Income ($)'},ticks:{callback:v=>'$'+v.toLocaleString()},grid:{color:'rgba(255,255,255,0.04)'}},y:{title:{display:true,text:'Cumulative GPA'},min:0,max:4.5,grid:{color:'rgba(255,255,255,0.04)'}}}}
-  });
-}();
-
-// --- GPA by Zip Code ---
-!function(){
-  const z = CD.zip_gpa.zips;
-  if(!z.length) return;
-  new Chart(document.getElementById('chartZipGPA'), {
+  const q = CD.income_q.quartiles;
+  if(!q.length) return;
+  const corr = CD.income_q.correlation;
+  new Chart(document.getElementById('chartIncomeQ'), {
     type:'bar',
     data:{
-      labels: z.map(d=>d.zip),
+      labels: q.map(d=>d.label),
       datasets:[{
-        label:'Mean GPA',
-        data:z.map(d=>d.gpa),
-        backgroundColor: z.map(d=>d.gpa>=3.5?'#26de81':d.gpa>=3.0?'#4a9eff':d.gpa>=2.5?'#f7b731':'#fc5c65'),
+        label:'Avg GPA',
+        data:q.map(d=>d.gpa),
+        backgroundColor:['#fc5c65','#fc8c3c','#f7b731','#26de81'],
         borderRadius:4,
       }]
     },
-    options:{responsive:true, plugins:{legend:{display:false},tooltip:{callbacks:{afterLabel:function(ctx){return z[ctx.dataIndex].n+' students'}}}}, scales:{x:{title:{display:true,text:'Zip Code'},grid:{display:false}},y:{title:{display:true,text:'Mean GPA'},min:2,max:4.5,grid:{color:'rgba(255,255,255,0.04)'}}}}
+    options:{responsive:true, plugins:{legend:{display:false},tooltip:{callbacks:{afterLabel:function(ctx){return q[ctx.dataIndex].n+' students'}}},subtitle:{display:true,text:'r = '+corr,color:'#a0aec0',font:{size:11},padding:{bottom:4}}}, scales:{x:{title:{display:true,text:'Zip-Code Median Income Quartile'},grid:{display:false}},y:{title:{display:true,text:'Average GPA'},min:2,max:4.5,grid:{color:'rgba(255,255,255,0.04)'}}}}
+  });
+}();
+
+// --- Income vs GPA Bubble Chart by Zip ---
+!function(){
+  const b = CD.bubble_zip.bubbles;
+  if(!b.length) return;
+  const corr = CD.bubble_zip.correlation;
+  const maxR = Math.max(...b.map(d=>d.r));
+  new Chart(document.getElementById('chartBubbleZip'), {
+    type:'bubble',
+    data:{
+      datasets:[{
+        label:'r = '+corr,
+        data:b.map(d=>({x:d.x, y:d.y, r:Math.max(4,Math.sqrt(d.r/maxR)*22)})),
+        backgroundColor:'rgba(74,158,255,0.45)',
+        borderColor:'#4a9eff',
+        borderWidth:1,
+        hoverBackgroundColor:'rgba(74,158,255,0.7)',
+      }]
+    },
+    options:{responsive:true, plugins:{legend:{display:true,labels:{font:{size:10}}},tooltip:{callbacks:{title:function(ctx){return b[ctx[0].dataIndex].zip},label:function(ctx){const d=b[ctx.dataIndex];return['Income: $'+d.x.toLocaleString(),'GPA: '+d.y,'Students: '+d.r]}}}}, scales:{x:{title:{display:true,text:'Median Household Income ($)'},ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'K'},grid:{color:'rgba(255,255,255,0.04)'}},y:{title:{display:true,text:'Average GPA'},min:2,max:4.5,grid:{color:'rgba(255,255,255,0.04)'}}}}
   });
 }();
 
@@ -1072,10 +1090,10 @@ def main():
         "grade_dist": math_grade_distribution(mdf),
         "avg_course": math_grade_by_course(mdf),
         "df_rate": df_rate_by_course(mdf),
-        "income_gpa": income_gpa_correlation(adf),
-        "zip_gpa": zip_gpa_analysis(zdf),
-        "race_grades": race_grade_analysis(mdf, demo),
-        "demo_summary": demographic_summary(demo),
+        "income_q": income_quartile_gpa(adf),
+        "bubble_zip": bubble_by_zip(adf),
+        "grade_dist_race": grade_dist_by_race(mdf, demo),
+        "df_rate_race": df_rate_by_race(mdf, demo),
     }
 
     html = build_html(chart_data)
