@@ -107,19 +107,18 @@
   .pill.py { background:rgba(74,158,255,.12); color:var(--accent); }
   .pill.gold { background:var(--gold-dim); color:var(--gold); }
 
-  /* Slide nav buttons */
-  .slide-nav { position:fixed; bottom:28px; right:28px; z-index:101; display:flex; gap:10px; }
-  .slide-nav button { width:44px; height:44px; border-radius:50%; border:2px solid var(--gold-dim); background:rgba(10,22,40,.85); backdrop-filter:blur(8px); color:var(--gold); font-size:1.1rem; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .2s; }
+  /* Slide nav buttons (in header) */
+  .slide-nav { display:flex; align-items:center; gap:8px; }
+  .slide-nav button { width:30px; height:30px; border-radius:50%; border:1.5px solid var(--gold-dim); background:transparent; color:var(--gold); font-size:.85rem; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .2s; }
   .slide-nav button:hover { background:var(--gold); color:var(--navy); border-color:var(--gold); }
   .slide-nav button:disabled { opacity:.25; cursor:default; pointer-events:none; }
-  .slide-nav .counter { align-self:center; font-size:.75rem; color:var(--text3); font-weight:600; min-width:40px; text-align:center; }
+  .slide-nav .counter { font-size:.72rem; color:var(--text3); font-weight:600; min-width:36px; text-align:center; }
 
   /* Responsive */
   @media (max-width:640px) {
     .slide { padding:70px 16px 30px; }
     .grid2, .grid3 { grid-template-columns:1fr; }
-    .slide-nav { bottom:16px; right:16px; }
-    .slide-nav button { width:38px; height:38px; font-size:.95rem; }
+    .slide-nav button { width:26px; height:26px; font-size:.75rem; }
   }
 </style>
 </head>
@@ -128,7 +127,10 @@
 <!-- Navigation -->
 <nav>
   <div class="brand">HSSU &times; CSMB Statistics Partnership</div>
-  <div class="dots" id="nav-dots"></div>
+  <div style="display:flex;align-items:center;gap:16px">
+    <div class="dots" id="nav-dots"></div>
+    <div class="slide-nav" id="slide-nav"></div>
+  </div>
 </nav>
 
 <!-- ===== SLIDE 1: Title ===== -->
@@ -711,11 +713,9 @@ Chart.defaults.font.family = 'Inter, sans-serif';
     dots.appendChild(d);
   });
 
-  // Build prev/next buttons
-  const nav=document.createElement('div');
-  nav.className='slide-nav';
+  // Build prev/next buttons (in header)
+  const nav=document.getElementById('slide-nav');
   nav.innerHTML='<button id="btnPrev" title="Previous slide">&#x276E;</button><span class="counter" id="slideCounter">1 / '+slides.length+'</span><button id="btnNext" title="Next slide">&#x276F;</button>';
-  document.body.appendChild(nav);
   const btnP=document.getElementById('btnPrev');
   const btnN=document.getElementById('btnNext');
   const ctr=document.getElementById('slideCounter');
