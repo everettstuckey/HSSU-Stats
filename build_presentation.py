@@ -1,0 +1,846 @@
+"""
+Build HSSU Statistics Partnership Presentation
+Generates index.html with course comparison, data analysis charts,
+and R/data science benefits narrative.
+"""
+import json
+import re
+import sys
+from pathlib import Path
+from typing import Dict, List, Optional
+
+import pandas as pd
+import numpy as np
+
+# ---------------------------------------------------------------------------
+# Data paths
+# ---------------------------------------------------------------------------
+ROOT = Path(__file__).resolve().parent.parent
+FOCUS_DL = ROOT / "focus_downloads"
+AFFLUENCE = ROOT / "affluence_analysis_results"
+OUT_DIR = Path(__file__).resolve().parent
+HIST_DIR = OUT_DIR / "data"        # historical scraper output
+
+# ---------------------------------------------------------------------------
+# Data loading helpers
+# ---------------------------------------------------------------------------
+
+def _latest_clean_csv() -> Optional[Path]:
+    candidates = sorted(FOCUS_DL.glob("final_grades_*_clean.csv"),
+                        key=lambda p: p.stat().st_mtime, reverse=True)
+    return candidates[0] if candidates else None
+
+
+def load_current_math_grades() -> pd.DataFrame:
+    csv = _latest_clean_csv()
+    if csv is None:
+        return pd.DataFrame()
+    df = pd.read_csv(csv)
+    math_pat = r"Algebra|Geometry|Calculus|Pre\s?Calc|PreCalc"
+    eca_pat = r"ECA.*(?:Algebra|Calculus|Precalculus)"
+    mask = (df["Course"].str.contains(math_pat, case=False, na=False) |
+            df["Course"].str.contains(eca_pat, case=False, na=False))
+    return df[mask].copy()
+
+
+def load_affluence_data() -> pd.DataFrame:
+    p = AFFLUENCE / "processed_student_data.csv"
+    if not p.exists():
+        return pd.DataFrame()
+    return pd.read_csv(p)
+
+
+def load_zip_income() -> pd.DataFrame:
+    p = AFFLUENCE / "zip_code_analysis.csv"
+    if not p.exists():
+        return pd.DataFrame()
+    return pd.read_csv(p)
+
+
+def load_historical_data() -> Optional[pd.DataFrame]:
+    """Load historical math grades if available from the scraper."""
+    p = HIST_DIR / "historical_math_grades.csv"
+    if p.exists():
+        return pd.read_csv(p)
+    return None
+
+
+def load_demographics() -> Optional[pd.DataFrame]:
+    """Load student demographics if available from the scraper."""
+    p = HIST_DIR / "student_demographics.csv"
+    if p.exists():
+        return pd.read_csv(p)
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Chart data builders
+# ---------------------------------------------------------------------------
+
+def math_grade_distribution(mdf: pd.DataFrame) -> dict:
+    """Current year math grade distribution across marking periods."""
+    periods = []
+    for col_base in ["Quarter 1", "Quarter 2", "Semester 1", "Progress Report 3"]:
+        ltr_col = f"{col_base} (Letter)"
+        if ltr_col not in mdf.columns:
+            continue
+        dist = mdf[ltr_col].value_counts()
+        periods.append({
+            "label": col_base,
+            "A": int(dist.get("A", 0)),
+            "B": int(dist.get("B", 0)),
+            "C": int(dist.get("C", 0)),
+            "D": int(dist.get("D", 0)),
+            "F": int(dist.get("F", 0)),
+        })
+    return {"periods": periods}
+
+
+def math_grade_by_course(mdf: pd.DataFrame) -> dict:
+    """Average math grade by course type."""
+    # Use Semester 1 % for the most complete picture
+    col = "Semester 1 (%)"
+    if col not in mdf.columns:
+        col = "Quarter 2 (%)"
+    if col not in mdf.columns:
+        return {"courses": []}
+
+    # Simplify course names
+    def simplify(name):
+        name = re.sub(r"\s+1-[12]$", "", name)
+        name = re.sub(r"\s+VC-CR$", "", name)
+        name = re.sub(r"\s+DD$", "", name)
+        return name.strip()
+
+    mdf = mdf.copy()
+    mdf["SimpleCourse"] = mdf["Course"].apply(simplify)
+    agg = mdf.groupby("SimpleCourse")[col].agg(["mean", "count"]).reset_index()
+    agg = agg[agg["count"] >= 5].sort_values("mean", ascending=False)
+    courses = []
+    for _, r in agg.iterrows():
+        courses.append({
+            "name": r["SimpleCourse"],
+            "avg": round(float(r["mean"]), 1),
+            "n": int(r["count"]),
+        })
+    return {"courses": courses, "col_used": col}
+
+
+def income_gpa_correlation(adf: pd.DataFrame) -> dict:
+    """Zip-code median income vs GPA scatter data."""
+    if adf.empty:
+        return {"points": [], "correlation": 0}
+    valid = adf.dropna(subset=["MedianZipIncome", "Acum-GPA"])
+    if len(valid) < 5:
+        return {"points": [], "correlation": 0}
+    corr = float(valid["MedianZipIncome"].corr(valid["Acum-GPA"]))
+    pts = []
+    for _, r in valid.iterrows():
+        pts.append({
+            "x": round(float(r["MedianZipIncome"]), 0),
+            "y": round(float(r["Acum-GPA"]), 2),
+            "gl": int(r.get("GradeLevel", 0)),
+        })
+    return {"points": pts, "correlation": round(corr, 3)}
+
+
+def zip_gpa_analysis(zdf: pd.DataFrame) -> dict:
+    """GPA by zip code bar chart data."""
+    if zdf.empty:
+        return {"zips": []}
+    agg = zdf.groupby("ZipCode").agg(
+        Mean_GPA=("Mean_GPA", "mean"),
+        Students=("Student_Count", "sum"),
+    ).reset_index()
+    agg = agg[agg["Students"] >= 3].sort_values("Mean_GPA", ascending=False)
+    zips = []
+    for _, r in agg.iterrows():
+        zips.append({
+            "zip": str(int(r["ZipCode"])),
+            "gpa": round(float(r["Mean_GPA"]), 2),
+            "n": int(r["Students"]),
+        })
+    return {"zips": zips}
+
+
+def df_rate_by_course(mdf: pd.DataFrame) -> dict:
+    """D/F rate per course for current year."""
+    col = "Semester 1 (Letter)"
+    if col not in mdf.columns:
+        col = "Quarter 2 (Letter)"
+    if col not in mdf.columns:
+        return {"courses": []}
+
+    def simplify(name):
+        name = re.sub(r"\s+1-[12]$", "", name)
+        name = re.sub(r"\s+VC-CR$", "", name)
+        name = re.sub(r"\s+DD$", "", name)
+        return name.strip()
+
+    mdf = mdf.copy()
+    mdf["SimpleCourse"] = mdf["Course"].apply(simplify)
+    results = []
+    for course, grp in mdf.groupby("SimpleCourse"):
+        total = grp[col].notna().sum()
+        if total < 5:
+            continue
+        df_count = grp[col].isin(["D", "F"]).sum()
+        results.append({
+            "name": course,
+            "df_rate": round(float(df_count / total * 100), 1),
+            "df_count": int(df_count),
+            "total": int(total),
+        })
+    results.sort(key=lambda x: x["df_rate"], reverse=True)
+    return {"courses": results}
+
+
+# ---------------------------------------------------------------------------
+# HTML slide template
+# ---------------------------------------------------------------------------
+
+def build_html(chart_data: dict) -> str:
+    data_json = json.dumps(chart_data)
+    return r"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HSSU Statistics Partnership | Collegiate School of Medicine &amp; Bioscience</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+  :root {
+    --navy: #0a1628; --navy2: #111d33; --navy3: #18263e;
+    --gold: #c9a227; --gold-light: #e8d07a; --gold-dim: #c9a22730;
+    --accent: #4a9eff; --accent2: #2d7dd2;
+    --text: #e8ecf1; --text2: #a0aec0; --text3: #718096;
+    --danger: #fc5c65; --warn: #f7b731; --ok: #26de81;
+    --card: #15202e; --card2: #1a2940;
+    --radius: 12px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior:smooth; font-size:16px; }
+  body { font-family:'Inter',sans-serif; background:var(--navy); color:var(--text); line-height:1.6; }
+
+  /* Navigation */
+  nav { position:fixed; top:0; left:0; right:0; z-index:100; background:rgba(10,22,40,.92); backdrop-filter:blur(12px); border-bottom:1px solid rgba(201,162,39,.15); padding:12px 24px; display:flex; justify-content:space-between; align-items:center; }
+  nav .brand { font-size:.9rem; font-weight:700; color:var(--gold); letter-spacing:.03em; }
+  nav .dots { display:flex; gap:8px; }
+  nav .dot { width:10px; height:10px; border-radius:50%; border:2px solid var(--text3); cursor:pointer; transition:all .2s; }
+  nav .dot.on { background:var(--gold); border-color:var(--gold); }
+  nav .dot:hover { border-color:var(--gold); }
+
+  /* Slides */
+  .slide { min-height:100vh; padding:80px 5vw 40px; display:flex; flex-direction:column; justify-content:center; position:relative; }
+  .slide:nth-child(even) { background:var(--navy2); }
+
+  /* Title slide */
+  .hero { text-align:center; }
+  .hero .tag { display:inline-block; background:var(--gold-dim); color:var(--gold); padding:6px 18px; border-radius:20px; font-size:.75rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; margin-bottom:16px; }
+  .hero h1 { font-size:clamp(2rem,5vw,3.6rem); font-weight:900; line-height:1.1; margin-bottom:12px; }
+  .hero h1 span { color:var(--gold); }
+  .hero .sub { font-size:1.1rem; color:var(--text2); max-width:700px; margin:0 auto 30px; }
+  .hero .schools { display:flex; justify-content:center; gap:40px; flex-wrap:wrap; margin-top:24px; }
+  .hero .school { text-align:center; }
+  .hero .school .name { font-weight:700; font-size:1rem; }
+  .hero .school .role { font-size:.78rem; color:var(--text3); }
+
+  /* Section headers */
+  .sec-hdr { margin-bottom:32px; }
+  .sec-hdr .num { font-size:.75rem; color:var(--gold); font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
+  .sec-hdr h2 { font-size:clamp(1.6rem,3.5vw,2.4rem); font-weight:800; margin-top:4px; }
+  .sec-hdr p { color:var(--text2); max-width:640px; margin-top:8px; }
+
+  /* Cards grid */
+  .grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:20px; }
+  .grid3 { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:20px; }
+
+  /* Card */
+  .card { background:var(--card); border:1px solid rgba(255,255,255,.06); border-radius:var(--radius); padding:24px; transition:transform .2s, box-shadow .2s; }
+  .card:hover { transform:translateY(-2px); box-shadow:0 8px 30px rgba(0,0,0,.3); }
+  .card h3 { font-size:1rem; font-weight:700; margin-bottom:8px; }
+  .card .lbl { font-size:.72rem; color:var(--text3); font-weight:600; text-transform:uppercase; letter-spacing:.05em; }
+
+  /* Course comparison table */
+  .cmp-tbl { width:100%; border-collapse:collapse; font-size:.85rem; margin-top:16px; }
+  .cmp-tbl th { background:var(--card2); padding:10px 14px; text-align:left; font-size:.7rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text3); font-weight:700; border-bottom:2px solid var(--gold-dim); }
+  .cmp-tbl td { padding:10px 14px; border-bottom:1px solid rgba(255,255,255,.04); vertical-align:top; }
+  .cmp-tbl tr:hover td { background:rgba(74,158,255,.04); }
+  .cmp-tbl .course-name { font-weight:700; color:var(--gold-light); }
+  .cmp-tbl .check { color:var(--ok); font-weight:700; }
+  .cmp-tbl .x { color:var(--danger); font-weight:700; }
+
+  /* Stat boxes */
+  .stat-box { text-align:center; padding:20px; }
+  .stat-box .big { font-size:2.4rem; font-weight:900; }
+  .stat-box .big.gold { color:var(--gold); }
+  .stat-box .big.danger { color:var(--danger); }
+  .stat-box .big.ok { color:var(--ok); }
+  .stat-box .desc { font-size:.8rem; color:var(--text2); margin-top:4px; }
+
+  /* Chart containers */
+  .chart-wrap { position:relative; width:100%; max-width:700px; margin:16px auto; }
+  .chart-wrap.wide { max-width:900px; }
+  .chart-wrap canvas { width:100% !important; }
+
+  /* Benefit list */
+  .benefits { list-style:none; }
+  .benefits li { padding:12px 0; border-bottom:1px solid rgba(255,255,255,.04); display:flex; gap:14px; align-items:flex-start; }
+  .benefits li:last-child { border-bottom:none; }
+  .benefits .icon { font-size:1.4rem; flex-shrink:0; margin-top:2px; }
+  .benefits .txt h4 { font-size:.95rem; font-weight:700; }
+  .benefits .txt p { font-size:.82rem; color:var(--text2); margin-top:2px; }
+
+  /* Timeline */
+  .timeline { position:relative; padding-left:30px; }
+  .timeline::before { content:''; position:absolute; left:8px; top:0; bottom:0; width:2px; background:var(--gold-dim); }
+  .timeline .step { position:relative; margin-bottom:24px; }
+  .timeline .step::before { content:''; position:absolute; left:-26px; top:4px; width:14px; height:14px; border-radius:50%; background:var(--gold); border:3px solid var(--navy); }
+  .timeline .step h4 { font-weight:700; font-size:.95rem; }
+  .timeline .step p { font-size:.82rem; color:var(--text2); margin-top:2px; }
+
+  /* Footer */
+  .foot { text-align:center; padding:30px; color:var(--text3); font-size:.75rem; border-top:1px solid rgba(255,255,255,.04); }
+  .foot a { color:var(--gold); text-decoration:none; }
+
+  /* Pill/badge */
+  .pill { display:inline-block; padding:3px 10px; border-radius:10px; font-size:.7rem; font-weight:700; }
+  .pill.r { background:rgba(38,222,129,.12); color:var(--ok); }
+  .pill.py { background:rgba(74,158,255,.12); color:var(--accent); }
+  .pill.gold { background:var(--gold-dim); color:var(--gold); }
+
+  /* Responsive */
+  @media (max-width:640px) {
+    .slide { padding:70px 16px 30px; }
+    .grid2, .grid3 { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav>
+  <div class="brand">HSSU &times; CSMB Statistics Partnership</div>
+  <div class="dots" id="nav-dots"></div>
+</nav>
+
+<!-- ===== SLIDE 1: Title ===== -->
+<section class="slide hero" id="s0">
+  <div class="tag">Dual-Credit Partnership Proposal</div>
+  <h1>Bringing <span>Statistics &amp; Data Science</span><br>to Collegiate Students</h1>
+  <div class="sub">A partnership between Harris-Stowe State University and Collegiate School of Medicine &amp; Bioscience to offer college-credit statistics courses with R programming and data science applications</div>
+  <div class="schools">
+    <div class="school"><div class="name">Harris-Stowe State University</div><div class="role">HBCU &middot; Statistics &amp; Data Science Faculty</div></div>
+    <div class="school"><div class="name">Collegiate School of Medicine &amp; Bioscience</div><div class="role">SLPS Magnet &middot; STEM Focus</div></div>
+  </div>
+</section>
+
+<!-- ===== SLIDE 2: Why Statistics ===== -->
+<section class="slide" id="s1">
+  <div class="sec-hdr">
+    <div class="num">01 &mdash; The Opportunity</div>
+    <h2>Why Statistics Matters for Collegiate Students</h2>
+    <p>Statistics is foundational to biomedical research, public health, and data-driven decision making &mdash; all core to CSMB's mission.</p>
+  </div>
+  <div class="grid3">
+    <div class="card stat-box"><div class="big gold">86%</div><div class="desc">of STEM careers require statistical literacy (BLS, 2024)</div></div>
+    <div class="card stat-box"><div class="big gold">$98K</div><div class="desc">median salary for statisticians &amp; data scientists (BLS)</div></div>
+    <div class="card stat-box"><div class="big gold">35%</div><div class="desc">projected job growth in data science through 2032</div></div>
+  </div>
+  <div class="grid2" style="margin-top:20px">
+    <div class="card">
+      <h3>College Credit Advantage</h3>
+      <ul class="benefits">
+        <li><span class="icon">&#x1F393;</span><div class="txt"><h4>Earn 3-4 college credits</h4><p>Transfer-ready credits from an accredited HBCU, satisfying general education math requirements at most universities</p></div></li>
+        <li><span class="icon">&#x1F4B0;</span><div class="txt"><h4>Save $1,500+ in tuition</h4><p>College statistics courses cost $500-$1,500+; dual-credit offers significant savings for families</p></div></li>
+        <li><span class="icon">&#x1F52C;</span><div class="txt"><h4>Research-ready skills</h4><p>Statistical analysis is required for PLTW Biomedical capstone projects and summer research internships</p></div></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>CSMB Curriculum Alignment</h3>
+      <ul class="benefits">
+        <li><span class="icon">&#x1F9EC;</span><div class="txt"><h4>Biomedical Science Pathway</h4><p>Biostatistics directly supports Human Body Systems, Medical Interventions, and Biomedical Innovation coursework</p></div></li>
+        <li><span class="icon">&#x1F4CA;</span><div class="txt"><h4>Data Literacy Across Subjects</h4><p>R programming skills transfer to AP Research, AP Environmental Science, and college-level science labs</p></div></li>
+        <li><span class="icon">&#x1F91D;</span><div class="txt"><h4>HBCU Pipeline</h4><p>Build direct relationships with Harris-Stowe faculty, creating pathways for continued enrollment and mentorship</p></div></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SLIDE 3: Course Comparison ===== -->
+<section class="slide" id="s2">
+  <div class="sec-hdr">
+    <div class="num">02 &mdash; Course Comparison</div>
+    <h2>Three Paths to Statistical Mastery</h2>
+    <p>Comparing the standard community college statistics course with two HSSU options that include R programming and data science components.</p>
+  </div>
+  <div style="overflow-x:auto">
+  <table class="cmp-tbl">
+    <thead>
+      <tr>
+        <th>Feature</th>
+        <th>STLCC MTH 180<br><small>Intro Statistics (MOTR MATH 110)</small></th>
+        <th>HSSU STAT0260<br><small>Data Analysis &amp; Stats w/Lab</small></th>
+        <th>HSSU MATH0301<br><small>Biostatistics</small></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="lbl">Credits</td>
+        <td>3</td>
+        <td>4 (includes lab)</td>
+        <td>3</td>
+      </tr>
+      <tr>
+        <td class="lbl">Institution Type</td>
+        <td>Community College</td>
+        <td>HBCU (4-year university)</td>
+        <td>HBCU (4-year university)</td>
+      </tr>
+      <tr>
+        <td class="lbl">Descriptive Statistics</td>
+        <td><span class="check">&#10003;</span> Data collection, organization, representation</td>
+        <td><span class="check">&#10003;</span> Data analysis methods</td>
+        <td><span class="check">&#10003;</span> Descriptive statistics with bio applications</td>
+      </tr>
+      <tr>
+        <td class="lbl">Probability Theory</td>
+        <td><span class="check">&#10003;</span> Elementary probability, distributions</td>
+        <td><span class="check">&#10003;</span> Probability &amp; distributions</td>
+        <td><span class="check">&#10003;</span> Probability in biological contexts</td>
+      </tr>
+      <tr>
+        <td class="lbl">Inferential Statistics</td>
+        <td><span class="check">&#10003;</span> Confidence intervals, hypothesis testing</td>
+        <td><span class="check">&#10003;</span> Statistical inference</td>
+        <td><span class="check">&#10003;</span> One &amp; two sample parameter inferences</td>
+      </tr>
+      <tr>
+        <td class="lbl">Regression &amp; Correlation</td>
+        <td><span class="check">&#10003;</span> Correlation &amp; regression analysis</td>
+        <td><span class="check">&#10003;</span> Correlation &amp; regression</td>
+        <td><span class="check">&#10003;</span> Simple regression, covariance, correlation</td>
+      </tr>
+      <tr>
+        <td class="lbl">ANOVA</td>
+        <td><span class="x">&#10007;</span></td>
+        <td><span class="check">&#10003;</span></td>
+        <td><span class="check">&#10003;</span> Analysis of Variance</td>
+      </tr>
+      <tr>
+        <td class="lbl">Non-Parametric Methods</td>
+        <td><span class="x">&#10007;</span></td>
+        <td><span class="check">&#10003;</span></td>
+        <td><span class="check">&#10003;</span> Non-parametric techniques</td>
+      </tr>
+      <tr>
+        <td class="lbl">Experimental Design</td>
+        <td><span class="x">&#10007;</span></td>
+        <td><span class="check">&#10003;</span></td>
+        <td><span class="check">&#10003;</span> Research design</td>
+      </tr>
+      <tr>
+        <td class="lbl">R Programming</td>
+        <td><span class="x">&#10007;</span> Calculator-based</td>
+        <td><span class="check">&#10003;</span> <span class="pill r">R / RStudio</span></td>
+        <td><span class="check">&#10003;</span> <span class="pill r">R</span> + SAS, SPSS, Excel</td>
+      </tr>
+      <tr>
+        <td class="lbl">Data Science Lab</td>
+        <td><span class="x">&#10007;</span></td>
+        <td><span class="check">&#10003;</span> Integrated lab component</td>
+        <td><span class="check">&#10003;</span> Software-based analysis</td>
+      </tr>
+      <tr>
+        <td class="lbl">Biological Applications</td>
+        <td><span class="x">&#10007;</span> General examples</td>
+        <td>General data analysis</td>
+        <td><span class="check">&#10003;</span> <strong>Biological Sciences focus</strong></td>
+      </tr>
+      <tr>
+        <td class="lbl">Contingency Tables</td>
+        <td><span class="x">&#10007;</span></td>
+        <td><span class="check">&#10003;</span></td>
+        <td><span class="check">&#10003;</span></td>
+      </tr>
+      <tr>
+        <td class="lbl">MOTR Transfer</td>
+        <td><span class="check">&#10003;</span> MOTR MATH 110</td>
+        <td>University credit</td>
+        <td>University credit</td>
+      </tr>
+      <tr>
+        <td class="lbl">Instructor</td>
+        <td>Various</td>
+        <td>Ann Podleski, Ph.D.</td>
+        <td>Ann Podleski, Ph.D.</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="grid3" style="margin-top:20px">
+    <div class="card" style="border-left:3px solid var(--gold)">
+      <div class="lbl">Key Advantage</div>
+      <h3>R Programming &amp; Lab</h3>
+      <p style="font-size:.85rem;color:var(--text2)">Both HSSU courses include hands-on statistical software (R, SAS, SPSS) that MTH 180 lacks entirely. Students learn to code real data analyses.</p>
+    </div>
+    <div class="card" style="border-left:3px solid var(--ok)">
+      <div class="lbl">Key Advantage</div>
+      <h3>Biomedical Focus</h3>
+      <p style="font-size:.85rem;color:var(--text2)">MATH0301 Biostatistics is specifically designed for Biological Sciences students &mdash; a perfect fit for CSMB's biomedical curriculum.</p>
+    </div>
+    <div class="card" style="border-left:3px solid var(--accent)">
+      <div class="lbl">Key Advantage</div>
+      <h3>Advanced Methods</h3>
+      <p style="font-size:.85rem;color:var(--text2)">ANOVA, non-parametric tests, and experimental design go beyond the standard intro stats course, preparing students for college research.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SLIDE 4: Current Math Performance ===== -->
+<section class="slide" id="s3">
+  <div class="sec-hdr">
+    <div class="num">03 &mdash; Math Performance at CSMB</div>
+    <h2>Current Year Math Grade Analysis</h2>
+    <p>Data from Focus SIS showing math achievement patterns across courses and marking periods at Collegiate School of Medicine &amp; Bioscience.</p>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>Grade Distribution by Marking Period</h3>
+      <div class="chart-wrap"><canvas id="chartGradeDist"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>D/F Rate by Math Course</h3>
+      <div class="chart-wrap"><canvas id="chartDFRate"></canvas></div>
+    </div>
+  </div>
+  <div class="grid2" style="margin-top:20px">
+    <div class="card">
+      <h3>Average Score by Course</h3>
+      <div class="chart-wrap"><canvas id="chartAvgCourse"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Key Insight</h3>
+      <div style="padding:10px 0">
+        <p style="font-size:.9rem;color:var(--text2);margin-bottom:16px">Students in lower-level math courses show significantly higher D/F rates, indicating a need for <strong style="color:var(--gold)">alternative pathways</strong> that build statistical thinking through applied, real-world data analysis rather than abstract algebraic manipulation.</p>
+        <p style="font-size:.9rem;color:var(--text2);margin-bottom:16px"><strong style="color:var(--accent)">Statistics courses with R programming</strong> provide a concrete, applied approach to mathematics that engages students through hands-on data exploration &mdash; particularly effective for students who struggle with traditional algebra sequences.</p>
+        <p style="font-size:.9rem;color:var(--text2)">The biostatistics pathway directly connects mathematical concepts to the biomedical curriculum students are already passionate about.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SLIDE 5: Equity & Access ===== -->
+<section class="slide" id="s4">
+  <div class="sec-hdr">
+    <div class="num">04 &mdash; Equity &amp; Access</div>
+    <h2>Income, Geography &amp; Math Achievement</h2>
+    <p>Analyzing the relationship between students' zip code, median household income, and academic performance to understand the equity landscape.</p>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>Median Income vs. GPA by Zip Code</h3>
+      <div class="chart-wrap"><canvas id="chartIncomeGPA"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>GPA by Zip Code</h3>
+      <div class="chart-wrap"><canvas id="chartZipGPA"></canvas></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:20px">
+    <h3>What This Means for the HSSU Partnership</h3>
+    <div class="grid3" style="margin-top:12px">
+      <div>
+        <p style="font-size:.85rem;color:var(--text2)"><strong style="color:var(--danger)">Income-correlated achievement gaps</strong> show that students from lower-income zip codes face systemic barriers to math success. Traditional statistics courses at community colleges require transportation and scheduling that disadvantage these students.</p>
+      </div>
+      <div>
+        <p style="font-size:.85rem;color:var(--text2)"><strong style="color:var(--gold)">On-site HSSU instruction</strong> at CSMB eliminates transportation barriers while providing university-quality instruction. As an HBCU, Harris-Stowe brings culturally responsive pedagogy and mentorship.</p>
+      </div>
+      <div>
+        <p style="font-size:.85rem;color:var(--text2)"><strong style="color:var(--ok)">Data science skills are equalizers.</strong> R programming and statistical analysis are high-value, high-demand skills that open doors regardless of background. This partnership creates access to those skills early.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SLIDE 6: R & Data Science Benefits ===== -->
+<section class="slide" id="s5">
+  <div class="sec-hdr">
+    <div class="num">05 &mdash; R Programming &amp; Data Science</div>
+    <h2>Why R Changes Everything</h2>
+    <p>The R programming language is the gold standard for statistical computing in biomedical research, and it's what sets the HSSU courses apart.</p>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>R in the CSMB Curriculum</h3>
+      <ul class="benefits">
+        <li><span class="icon">&#x1F9EC;</span><div class="txt"><h4>PLTW Biomedical Capstone</h4><p>Students can use R to analyze experimental data for their capstone projects, producing publication-quality statistical analyses and visualizations</p></div></li>
+        <li><span class="icon">&#x1F3E5;</span><div class="txt"><h4>Summer Research Internships</h4><p>Washington University, SLU, and BJC health system internships expect statistical software proficiency. R is the #1 tool in biomedical research.</p></div></li>
+        <li><span class="icon">&#x1F4DD;</span><div class="txt"><h4>AP Research &amp; Science Courses</h4><p>R enables sophisticated data analysis for AP Research papers and AP Environmental Science field studies that go far beyond spreadsheet calculations</p></div></li>
+        <li><span class="icon">&#x1F30D;</span><div class="txt"><h4>Health Equity Analysis</h4><p>Students can analyze real public health datasets &mdash; COVID disparities, environmental justice, food access &mdash; connecting stats to their community</p></div></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>What Students Will Learn in R</h3>
+      <div style="background:var(--navy);border-radius:8px;padding:16px;margin-bottom:16px;font-family:monospace;font-size:.8rem;color:var(--accent);overflow-x:auto">
+        <pre style="margin:0;white-space:pre-wrap"><span style="color:var(--text3)"># Load patient data</span>
+library(tidyverse)
+patients &lt;- read_csv("clinical_trial.csv")
+
+<span style="color:var(--text3)"># Descriptive statistics</span>
+patients %&gt;%
+  group_by(treatment_group) %&gt;%
+  summarise(
+    mean_bp = mean(blood_pressure),
+    sd_bp   = sd(blood_pressure),
+    n       = n()
+  )
+
+<span style="color:var(--text3)"># Hypothesis test: does treatment lower BP?</span>
+t.test(blood_pressure ~ treatment_group,
+       data = patients)
+
+<span style="color:var(--text3)"># Visualize results</span>
+ggplot(patients, aes(x = treatment_group,
+                     y = blood_pressure,
+                     fill = treatment_group)) +
+  geom_boxplot() +
+  labs(title = "Blood Pressure by Treatment Group")</pre>
+      </div>
+      <div class="grid3">
+        <div style="text-align:center"><div class="pill r" style="font-size:.8rem;padding:6px 14px">tidyverse</div><div style="font-size:.75rem;color:var(--text3);margin-top:4px">Data wrangling</div></div>
+        <div style="text-align:center"><div class="pill r" style="font-size:.8rem;padding:6px 14px">ggplot2</div><div style="font-size:.75rem;color:var(--text3);margin-top:4px">Visualization</div></div>
+        <div style="text-align:center"><div class="pill r" style="font-size:.8rem;padding:6px 14px">rmarkdown</div><div style="font-size:.75rem;color:var(--text3);margin-top:4px">Reports &amp; papers</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:20px">
+    <h3>Skills Comparison: Calculator vs. R Programming</h3>
+    <table class="cmp-tbl">
+      <thead><tr><th>Skill</th><th>Calculator-Based (MTH 180)</th><th>R Programming (HSSU)</th><th>Career Impact</th></tr></thead>
+      <tbody>
+        <tr><td>Data import</td><td>Manual entry (small datasets)</td><td>Read CSV, databases, APIs</td><td>Handle real-world data at scale</td></tr>
+        <tr><td>Visualization</td><td>Basic histograms on screen</td><td>Publication-quality charts (ggplot2)</td><td>Communicate findings effectively</td></tr>
+        <tr><td>Reproducibility</td><td>Re-enter everything each time</td><td>Scripts run again with one click</td><td>Scientific rigor &amp; collaboration</td></tr>
+        <tr><td>Automation</td><td>Not possible</td><td>Batch process 1000s of datasets</td><td>Efficiency in research labs</td></tr>
+        <tr><td>Resume value</td><td>Not listed</td><td>"Proficient in R" is a major asset</td><td>Immediate employability signal</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ===== SLIDE 7: Implementation ===== -->
+<section class="slide" id="s6">
+  <div class="sec-hdr">
+    <div class="num">06 &mdash; Implementation Roadmap</div>
+    <h2>Making It Happen</h2>
+    <p>A phased approach to launching the HSSU statistics partnership at Collegiate School of Medicine &amp; Bioscience.</p>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>Proposed Course Sequence</h3>
+      <div class="timeline">
+        <div class="step"><h4>Junior Year &mdash; Fall Semester</h4><p><strong>STAT0260: Data Analysis &amp; Statistics w/Lab</strong> (4 credits) &mdash; Foundational statistics with R programming. Students learn data wrangling, visualization, and inference while building coding skills.</p></div>
+        <div class="step"><h4>Junior Year &mdash; Spring Semester</h4><p><strong>MATH0301: Biostatistics</strong> (3 credits) &mdash; Advanced statistical methods applied to biological sciences. ANOVA, experimental design, and non-parametric tests using R, SAS, and SPSS.</p></div>
+        <div class="step"><h4>Senior Year</h4><p><strong>Apply skills to PLTW Capstone, AP Research, and summer internships.</strong> Students enter college with 7 credits and proven data science competency.</p></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Logistics &amp; Requirements</h3>
+      <ul class="benefits">
+        <li><span class="icon">&#x1F468;&#x200D;&#x1F3EB;</span><div class="txt"><h4>Instructor: Dr. Ann Podleski</h4><p>HSSU faculty member already teaching both courses. Can deliver instruction on-site at CSMB or via hybrid model.</p></div></li>
+        <li><span class="icon">&#x1F4BB;</span><div class="txt"><h4>Technology: R &amp; RStudio</h4><p>Free, open-source software. Runs on existing CSMB laptops. RStudio Cloud available as backup for any hardware issues.</p></div></li>
+        <li><span class="icon">&#x1F4C5;</span><div class="txt"><h4>Schedule: 4 days/week</h4><p>STAT0260 meets Mon-Thu 1:00-1:50 PM. Can be adapted to CSMB bell schedule. MATH0301 meets Mon/Wed 2:00-3:15 PM.</p></div></li>
+        <li><span class="icon">&#x1F4B5;</span><div class="txt"><h4>Cost: Dual-Credit Rate</h4><p>HSSU dual-credit tuition is significantly less than standard university tuition, making this accessible to all CSMB families.</p></div></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SLIDE 8: Call to Action ===== -->
+<section class="slide hero" id="s7" style="background:linear-gradient(135deg,var(--navy) 0%,var(--navy3) 100%)">
+  <div class="tag">Next Steps</div>
+  <h1>Let's Build the <span>Future of Statistics Education</span> at CSMB</h1>
+  <div class="sub">Partner with Harris-Stowe State University to give Collegiate students the statistical thinking, R programming skills, and data science competency they need to excel in biomedical research and beyond.</div>
+  <div class="grid3" style="max-width:900px;margin:30px auto 0">
+    <div class="card stat-box" style="border:1px solid var(--gold-dim)">
+      <div class="big gold">7</div>
+      <div class="desc">College credits earned at CSMB</div>
+    </div>
+    <div class="card stat-box" style="border:1px solid var(--gold-dim)">
+      <div class="big gold">2</div>
+      <div class="desc">Software platforms mastered (R + SPSS)</div>
+    </div>
+    <div class="card stat-box" style="border:1px solid var(--gold-dim)">
+      <div class="big gold">1</div>
+      <div class="desc">HBCU partnership for life</div>
+    </div>
+  </div>
+</section>
+
+<div class="foot">
+  HSSU Statistics Partnership Proposal &middot; Collegiate School of Medicine &amp; Bioscience &middot; SLPS<br>
+  Data sourced from Focus SIS and U.S. Census Bureau ACS &middot; <a href="https://www.hssu.edu">hssu.edu</a>
+</div>
+
+<script>
+const CD = """ + data_json + r""";
+Chart.defaults.color = '#a0aec0';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.04)';
+Chart.defaults.font.family = 'Inter, sans-serif';
+
+// --- Grade Distribution Stacked Bar ---
+!function(){
+  const p = CD.grade_dist.periods;
+  if(!p.length) return;
+  new Chart(document.getElementById('chartGradeDist'), {
+    type:'bar',
+    data:{
+      labels: p.map(d=>d.label),
+      datasets:[
+        {label:'A', data:p.map(d=>d.A), backgroundColor:'#26de81'},
+        {label:'B', data:p.map(d=>d.B), backgroundColor:'#4a9eff'},
+        {label:'C', data:p.map(d=>d.C), backgroundColor:'#f7b731'},
+        {label:'D', data:p.map(d=>d.D), backgroundColor:'#fc8c3c'},
+        {label:'F', data:p.map(d=>d.F), backgroundColor:'#fc5c65'},
+      ]
+    },
+    options:{responsive:true, plugins:{legend:{position:'top',labels:{boxWidth:12,padding:8,font:{size:11}}}}, scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,title:{display:true,text:'Students'}}}}
+  });
+}();
+
+// --- D/F Rate by Course ---
+!function(){
+  const c = CD.df_rate.courses;
+  if(!c.length) return;
+  new Chart(document.getElementById('chartDFRate'), {
+    type:'bar',
+    data:{
+      labels: c.map(d=>d.name),
+      datasets:[{
+        label:'D/F Rate %',
+        data:c.map(d=>d.df_rate),
+        backgroundColor: c.map(d=>d.df_rate>30?'#fc5c65':d.df_rate>15?'#fc8c3c':'#26de81'),
+        borderRadius:4,
+      }]
+    },
+    options:{indexAxis:'y', responsive:true, plugins:{legend:{display:false}}, scales:{x:{title:{display:true,text:'D/F Rate (%)'},max:60,grid:{color:'rgba(255,255,255,0.04)'}},y:{grid:{display:false}}}}
+  });
+}();
+
+// --- Avg Score by Course ---
+!function(){
+  const c = CD.avg_course.courses;
+  if(!c.length) return;
+  new Chart(document.getElementById('chartAvgCourse'), {
+    type:'bar',
+    data:{
+      labels: c.map(d=>d.name),
+      datasets:[{
+        label:'Avg %',
+        data:c.map(d=>d.avg),
+        backgroundColor: c.map(d=>d.avg>=80?'#26de81':d.avg>=70?'#4a9eff':d.avg>=60?'#f7b731':'#fc5c65'),
+        borderRadius:4,
+      }]
+    },
+    options:{indexAxis:'y', responsive:true, plugins:{legend:{display:false}}, scales:{x:{title:{display:true,text:'Average Score (%)'},min:40,max:100,grid:{color:'rgba(255,255,255,0.04)'}},y:{grid:{display:false}}}}
+  });
+}();
+
+// --- Income vs GPA Scatter ---
+!function(){
+  const pts = CD.income_gpa.points;
+  if(!pts.length) return;
+  const corr = CD.income_gpa.correlation;
+  new Chart(document.getElementById('chartIncomeGPA'), {
+    type:'scatter',
+    data:{
+      datasets:[{
+        label:`r = ${corr}`,
+        data: pts.map(p=>({x:p.x, y:p.y})),
+        backgroundColor: pts.map(p=>p.gl===9?'#4a9eff':p.gl===10?'#f7b731':p.gl===11?'#26de81':'#fc5c65'),
+        pointRadius:5,
+        pointHoverRadius:7,
+      }]
+    },
+    options:{responsive:true, plugins:{legend:{display:true,labels:{font:{size:11}}}}, scales:{x:{title:{display:true,text:'Median Household Income ($)'},ticks:{callback:v=>'$'+v.toLocaleString()},grid:{color:'rgba(255,255,255,0.04)'}},y:{title:{display:true,text:'Cumulative GPA'},min:0,max:4.5,grid:{color:'rgba(255,255,255,0.04)'}}}}
+  });
+}();
+
+// --- GPA by Zip Code ---
+!function(){
+  const z = CD.zip_gpa.zips;
+  if(!z.length) return;
+  new Chart(document.getElementById('chartZipGPA'), {
+    type:'bar',
+    data:{
+      labels: z.map(d=>d.zip),
+      datasets:[{
+        label:'Mean GPA',
+        data:z.map(d=>d.gpa),
+        backgroundColor: z.map(d=>d.gpa>=3.5?'#26de81':d.gpa>=3.0?'#4a9eff':d.gpa>=2.5?'#f7b731':'#fc5c65'),
+        borderRadius:4,
+      }]
+    },
+    options:{responsive:true, plugins:{legend:{display:false},tooltip:{callbacks:{afterLabel:function(ctx){return z[ctx.dataIndex].n+' students'}}}}, scales:{x:{title:{display:true,text:'Zip Code'},grid:{display:false}},y:{title:{display:true,text:'Mean GPA'},min:2,max:4.5,grid:{color:'rgba(255,255,255,0.04)'}}}}
+  });
+}();
+
+// --- Navigation dots ---
+!function(){
+  const slides=document.querySelectorAll('.slide');
+  const dots=document.getElementById('nav-dots');
+  slides.forEach((s,i)=>{
+    const d=document.createElement('div');
+    d.className='dot'+(i===0?' on':'');
+    d.onclick=()=>s.scrollIntoView({behavior:'smooth'});
+    dots.appendChild(d);
+  });
+  const obs=new IntersectionObserver(entries=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting){
+        const idx=[...slides].indexOf(e.target);
+        dots.querySelectorAll('.dot').forEach((d,i)=>d.classList.toggle('on',i===idx));
+      }
+    });
+  },{threshold:0.5});
+  slides.forEach(s=>obs.observe(s));
+}();
+</script>
+</body>
+</html>"""
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def main():
+    print("Loading data...")
+    mdf = load_current_math_grades()
+    adf = load_affluence_data()
+    zdf = load_zip_income()
+
+    print(f"  Math grades: {len(mdf)} rows")
+    print(f"  Affluence data: {len(adf)} students")
+    print(f"  Zip analysis: {len(zdf)} rows")
+
+    # Build chart data
+    chart_data = {
+        "grade_dist": math_grade_distribution(mdf),
+        "avg_course": math_grade_by_course(mdf),
+        "df_rate": df_rate_by_course(mdf),
+        "income_gpa": income_gpa_correlation(adf),
+        "zip_gpa": zip_gpa_analysis(zdf),
+    }
+
+    html = build_html(chart_data)
+    out = OUT_DIR / "index.html"
+    out.write_text(html, encoding="utf-8")
+    print(f"\nPresentation written to {out}")
+    print(f"  File size: {out.stat().st_size:,} bytes")
+
+
+if __name__ == "__main__":
+    main()
