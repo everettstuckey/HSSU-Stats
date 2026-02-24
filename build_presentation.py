@@ -169,7 +169,7 @@ def math_score_by_income(merged: pd.DataFrame) -> dict:
     for _, r in agg.iterrows():
         lo, hi = r["Q"].left, r["Q"].right
         quartiles.append({
-            "label": f"${int(lo/1000)}K\u2013${int(hi/1000)}K",
+            "label": f"${int(lo/1000)}K-${int(hi/1000)}K",
             "avg": round(float(r["avg"]), 1),
             "n": int(r["n"]),
         })
@@ -188,7 +188,7 @@ def math_df_by_income(merged: pd.DataFrame) -> dict:
         df_n = int(grp["_ltr"].isin(["D", "F"]).sum())
         lo, hi = q.left, q.right
         quartiles.append({
-            "label": f"${int(lo/1000)}K\u2013${int(hi/1000)}K",
+            "label": f"${int(lo/1000)}K-${int(hi/1000)}K",
             "df_rate": round(float(df_n) / total * 100, 1),
             "df_count": df_n,
             "n": total,
@@ -207,7 +207,7 @@ def race_by_income_quartile(merged: pd.DataFrame) -> dict:
     for q, grp in m.groupby("Q", observed=True):
         lo, hi = q.left, q.right
         total = len(grp)
-        entry = {"label": f"${int(lo/1000)}K\u2013${int(hi/1000)}K", "n": total}
+        entry = {"label": f"${int(lo/1000)}K-${int(hi/1000)}K", "n": total}
         for race in races:
             entry[race] = round(float((grp["Race"] == race).sum()) / total * 100, 1)
         quartiles.append(entry)
@@ -445,9 +445,9 @@ def build_html(chart_data: dict) -> str:
 <!-- ===== SLIDE 2: Why Statistics ===== -->
 <section class="slide" id="s1">
   <div class="sec-hdr">
-    <div class="num">01 &mdash; The Opportunity</div>
+    <div class="num">01 | The Opportunity</div>
     <h2>Why Statistics Matters for Collegiate Students</h2>
-    <p>Statistics is foundational to biomedical research, public health, and data-driven decision making &mdash; all core to CSMB's mission.</p>
+    <p>Statistics is foundational to biomedical research, public health, and data-driven decision making, all core to CSMB's mission.</p>
   </div>
   <div class="grid3">
     <div class="card stat-box"><div class="big gold">86%</div><div class="desc">of STEM careers require statistical literacy (BLS, 2024)</div></div>
@@ -477,7 +477,7 @@ def build_html(chart_data: dict) -> str:
 <!-- ===== SLIDE 3: Course Comparison ===== -->
 <section class="slide" id="s2">
   <div class="sec-hdr">
-    <div class="num">02 &mdash; Course Comparison</div>
+    <div class="num">02 | Course Comparison</div>
     <h2>Three Paths to Statistical Mastery</h2>
     <p>Comparing the standard community college statistics course with two HSSU options that include R programming and data science components.</p>
   </div>
@@ -594,7 +594,7 @@ def build_html(chart_data: dict) -> str:
     <div class="card" style="border-left:3px solid var(--ok)">
       <div class="lbl">Key Advantage</div>
       <h3>Biomedical Focus</h3>
-      <p style="font-size:.78rem;color:var(--text2);line-height:1.35">MATH0301 Biostatistics is specifically designed for Biological Sciences students &mdash; a perfect fit for CSMB's biomedical curriculum.</p>
+      <p style="font-size:.78rem;color:var(--text2);line-height:1.35">MATH0301 Biostatistics is specifically designed for Biological Sciences students and a perfect fit for CSMB's biomedical curriculum.</p>
     </div>
     <div class="card" style="border-left:3px solid var(--accent)">
       <div class="lbl">Key Advantage</div>
@@ -607,7 +607,7 @@ def build_html(chart_data: dict) -> str:
 <!-- ===== SLIDE 4: Current Math Performance ===== -->
 <section class="slide" id="s3">
   <div class="sec-hdr">
-    <div class="num">03 &mdash; Math Performance at CSMB</div>
+    <div class="num">03 | Math Performance at CSMB</div>
     <h2>Current Year Math Grade Analysis</h2>
     <p>Data from Focus SIS showing math achievement patterns across courses and marking periods at Collegiate School of Medicine &amp; Bioscience.</p>
   </div>
@@ -630,7 +630,7 @@ def build_html(chart_data: dict) -> str:
       <h3>Key Insight</h3>
       <div style="padding:10px 0">
         <p style="font-size:.78rem;color:var(--text2);margin-bottom:8px;line-height:1.35">Students in lower-level math courses show significantly higher D/F rates, indicating a need for <strong style="color:var(--gold)">alternative pathways</strong> that build statistical thinking through applied, real-world data analysis rather than abstract algebraic manipulation.</p>
-        <p style="font-size:.78rem;color:var(--text2);margin-bottom:8px;line-height:1.35"><strong style="color:var(--accent)">Statistics courses with R programming</strong> provide a concrete, applied approach to mathematics that engages students through hands-on data exploration &mdash; particularly effective for students who struggle with traditional algebra sequences.</p>
+        <p style="font-size:.78rem;color:var(--text2);margin-bottom:8px;line-height:1.35"><strong style="color:var(--accent)">Statistics courses with R programming</strong> provide a concrete, applied approach to mathematics that engages students through hands-on data exploration, particularly effective for students who struggle with traditional algebra sequences.</p>
         <p style="font-size:.78rem;color:var(--text2);line-height:1.35">The biostatistics pathway directly connects mathematical concepts to the biomedical curriculum students are already passionate about.</p>
       </div>
     </div>
@@ -640,7 +640,7 @@ def build_html(chart_data: dict) -> str:
 <!-- ===== SLIDE 5: Equity & Access ===== -->
 <section class="slide" id="s4">
   <div class="sec-hdr">
-    <div class="num">04 &mdash; Equity &amp; Access</div>
+    <div class="num">04 | Equity &amp; Access</div>
     <h2>Income, Race &amp; Math Performance</h2>
     <p>Does zip-code income predict math outcomes? Who are the students in each income bracket? The data connects poverty, demographics, and achievement.</p>
   </div>
@@ -674,7 +674,7 @@ def build_html(chart_data: dict) -> str:
         <p style="font-size:.74rem;color:var(--text2);line-height:1.35"><strong style="color:var(--gold)">Lower-income brackets are disproportionately students of color.</strong> The income gap and the racial achievement gap are the same gap. On-site HSSU instruction removes transportation and cost barriers.</p>
       </div>
       <div>
-        <p style="font-size:.74rem;color:var(--text2);line-height:1.35"><strong style="color:var(--ok)">An HBCU partnership addresses both.</strong> Harris-Stowe brings culturally responsive pedagogy, affordable dual-credit, and a direct pathway &mdash; meeting students where they are.</p>
+        <p style="font-size:.74rem;color:var(--text2);line-height:1.35"><strong style="color:var(--ok)">An HBCU partnership addresses both.</strong> Harris-Stowe brings culturally responsive pedagogy, affordable dual-credit, and a direct pathway, meeting students where they are.</p>
       </div>
     </div>
   </div>
@@ -683,7 +683,7 @@ def build_html(chart_data: dict) -> str:
 <!-- ===== SLIDE 6: R & Data Science Benefits ===== -->
 <section class="slide" id="s5">
   <div class="sec-hdr">
-    <div class="num">05 &mdash; R Programming &amp; Data Science</div>
+    <div class="num">05 | R Programming &amp; Data Science</div>
     <h2>Why R Changes Everything</h2>
     <p>The R programming language is the gold standard for statistical computing in biomedical research, and it's what sets the HSSU courses apart.</p>
   </div>
@@ -694,7 +694,7 @@ def build_html(chart_data: dict) -> str:
         <li><span class="icon">&#x1F9EC;</span><div class="txt"><h4>PLTW Biomedical Capstone</h4><p>Students can use R to analyze experimental data for their capstone projects, producing publication-quality statistical analyses and visualizations</p></div></li>
         <li><span class="icon">&#x1F3E5;</span><div class="txt"><h4>Summer Research Internships</h4><p>Washington University, SLU, and BJC health system internships expect statistical software proficiency. R is the #1 tool in biomedical research.</p></div></li>
         <li><span class="icon">&#x1F4DD;</span><div class="txt"><h4>AP Research &amp; Science Courses</h4><p>R enables sophisticated data analysis for AP Research papers and AP Environmental Science field studies that go far beyond spreadsheet calculations</p></div></li>
-        <li><span class="icon">&#x1F30D;</span><div class="txt"><h4>Health Equity Analysis</h4><p>Students can analyze real public health datasets &mdash; COVID disparities, environmental justice, food access &mdash; connecting stats to their community</p></div></li>
+        <li><span class="icon">&#x1F30D;</span><div class="txt"><h4>Health Equity Analysis</h4><p>Students can analyze real public health datasets (COVID disparities, environmental justice, food access), connecting stats to their community</p></div></li>
       </ul>
     </div>
     <div class="card">
@@ -749,7 +749,7 @@ ggplot(patients, aes(x = treatment_group,
 <!-- ===== SLIDE 7: Implementation ===== -->
 <section class="slide" id="s6">
   <div class="sec-hdr">
-    <div class="num">06 &mdash; Implementation Roadmap</div>
+    <div class="num">06 | Implementation Roadmap</div>
     <h2>Making It Happen</h2>
     <p>A phased approach to launching the HSSU statistics partnership at Collegiate School of Medicine &amp; Bioscience.</p>
   </div>
@@ -757,8 +757,8 @@ ggplot(patients, aes(x = treatment_group,
     <div class="card">
       <h3>Proposed Course Sequence</h3>
       <div class="timeline">
-        <div class="step"><h4>Junior Year &mdash; Fall Semester</h4><p><strong>STAT0260: Data Analysis &amp; Statistics w/Lab</strong> (4 credits) &mdash; Foundational statistics with R programming. Students learn data wrangling, visualization, and inference while building coding skills.</p></div>
-        <div class="step"><h4>Junior Year &mdash; Spring Semester</h4><p><strong>MATH0301: Biostatistics</strong> (3 credits) &mdash; Advanced statistical methods applied to biological sciences. ANOVA, experimental design, and non-parametric tests using R, SAS, and SPSS.</p></div>
+        <div class="step"><h4>Junior Year, Fall Semester</h4><p><strong>STAT0260: Data Analysis &amp; Statistics w/Lab</strong> (4 credits). Foundational statistics with R programming. Students learn data wrangling, visualization, and inference while building coding skills.</p></div>
+        <div class="step"><h4>Junior Year, Spring Semester</h4><p><strong>MATH0301: Biostatistics</strong> (3 credits). Advanced statistical methods applied to biological sciences. ANOVA, experimental design, and non-parametric tests using R, SAS, and SPSS.</p></div>
         <div class="step"><h4>Senior Year</h4><p><strong>Apply skills to PLTW Capstone, AP Research, and summer internships.</strong> Students enter college with 7 credits and proven data science competency.</p></div>
       </div>
     </div>
@@ -777,9 +777,9 @@ ggplot(patients, aes(x = treatment_group,
 <!-- ===== SLIDE 8: People & Partnerships ===== -->
 <section class="slide" id="s7">
   <div class="sec-hdr">
-    <div class="num">07 &mdash; The People Behind the Partnership</div>
+    <div class="num">07 | The People Behind the Partnership</div>
     <h2>Built on <span style="color:var(--gold)">Relationships</span>, Driven by Mission</h2>
-    <p>This partnership is grounded in decades of collaboration between HSSU and SLPS &mdash; and personal relationships that make execution seamless.</p>
+    <p>This partnership is grounded in decades of collaboration between HSSU and SLPS, and personal relationships that make execution seamless.</p>
   </div>
   <div class="grid2">
     <div class="card" style="border-left:3px solid var(--gold)">
@@ -789,15 +789,15 @@ ggplot(patients, aes(x = treatment_group,
         <li><span class="icon" style="font-size:1.1rem">&#x1F393;</span><div class="txt"><h4>Ph.D. in Mathematics</h4><p>Extensive academic career in mathematics education with a focus on applied statistics and data analysis</p></div></li>
         <li><span class="icon" style="font-size:1.1rem">&#x1F3EB;</span><div class="txt"><h4>Department Chair</h4><p>Leads the HSSU Mathematics Department, overseeing curriculum for STAT0260 (Data Analysis &amp; Statistics w/Lab) and MATH0301 (Biostatistics)</p></div></li>
         <li><span class="icon" style="font-size:1.1rem">&#x1F52C;</span><div class="txt"><h4>STEM Research Mentor</h4><p>Has mentored HSSU students to national STEM competitions including the Emerging Researchers National Competition, integrating geospatial analysis and data science</p></div></li>
-        <li><span class="icon" style="font-size:1.1rem">&#x1F4CA;</span><div class="txt"><h4>R, SAS &amp; SPSS Expert</h4><p>Teaches hands-on statistical computing across multiple platforms &mdash; exactly the skills CSMB students need for biomedical research careers</p></div></li>
+        <li><span class="icon" style="font-size:1.1rem">&#x1F4CA;</span><div class="txt"><h4>R, SAS &amp; SPSS Expert</h4><p>Teaches hands-on statistical computing across multiple platforms, exactly the skills CSMB students need for biomedical research careers</p></div></li>
       </ul>
-      <div style="font-size:.7rem;color:var(--text3);margin-top:4px">PodleskA@hssu.edu &middot; (314) 340-3565 &middot; HGA 317</div>
+      <div style="font-size:.7rem;color:var(--text3);margin-top:4px">PodleskA@hssu.edu | (314) 340-3565 | HGA 317</div>
     </div>
     <div class="card" style="border-left:3px solid var(--accent)">
       <h3 style="margin-bottom:4px">Dr. Harvey R. Fields, Jr.</h3>
       <div style="font-size:.7rem;color:var(--accent);font-weight:600;margin-bottom:4px">FOUNDING DEAN, COLLEGE OF STEM &middot; HARRIS-STOWE STATE UNIVERSITY</div>
       <ul class="benefits">
-        <li><span class="icon" style="font-size:1.1rem">&#x1F3DB;</span><div class="txt"><h4>Morehouse &rarr; Georgia Tech &rarr; Washington University</h4><p>B.S. Chemistry (Morehouse College), B.S. Chemical Engineering (Georgia Tech), M.S. &amp; Ph.D. Chemistry (Washington University in St. Louis)</p></div></li>
+        <li><span class="icon" style="font-size:1.1rem">&#x1F3DB;</span><div class="txt"><h4>Morehouse > Georgia Tech > Washington University</h4><p>B.S. Chemistry (Morehouse College), B.S. Chemical Engineering (Georgia Tech), M.S. &amp; Ph.D. Chemistry (Washington University in St. Louis)</p></div></li>
         <li><span class="icon" style="font-size:1.1rem">&#x1F31F;</span><div class="txt"><h4>Former Associate Dean, WashU</h4><p>Served as Associate Dean for Student Success at Washington University before being named inaugural Dean of HSSU's College of STEM in 2023</p></div></li>
         <li><span class="icon" style="font-size:1.1rem">&#x1F3D7;</span><div class="txt"><h4>$62M STEM Building</h4><p>Leading the construction of HSSU's new $62 million STEM education facility, breaking ground January 2026 with completion expected summer 2027</p></div></li>
         <li><span class="icon" style="font-size:1.1rem">&#x1F91D;</span><div class="txt"><h4>SLPS Partnership Champion</h4><p>Deeply committed to creating STEM pathways for underrepresented students in the St. Louis region</p></div></li>
@@ -805,7 +805,7 @@ ggplot(patients, aes(x = treatment_group,
     </div>
   </div>
   <div class="card" style="margin-top:8px;border:1px solid var(--gold-dim)">
-    <h3 style="margin-bottom:8px;text-align:center">The CSMB &harr; HSSU Connection</h3>
+    <h3 style="margin-bottom:8px;text-align:center">The CSMB / HSSU Connection</h3>
     <div class="grid3">
       <div style="text-align:center;padding:6px">
         <div style="font-size:1.4rem;margin-bottom:2px">&#x1F9D1;&#x200D;&#x1F3EB;</div>
