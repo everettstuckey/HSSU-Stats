@@ -293,7 +293,7 @@ def math_df_by_race(merged: pd.DataFrame) -> dict:
 # HTML slide template
 # ---------------------------------------------------------------------------
 
-def build_html(chart_data: dict) -> str:
+def build_html(chart_data: dict, map_json: str = "{}") -> str:
     data_json = json.dumps(chart_data)
     return r"""<!DOCTYPE html>
 <html lang="en">
@@ -302,6 +302,8 @@ def build_html(chart_data: dict) -> str:
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HSSU Statistics Partnership | Collegiate School of Medicine &amp; Bioscience</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
   :root {
@@ -378,6 +380,16 @@ def build_html(chart_data: dict) -> str:
   .chart-wrap { position:relative; width:100%; max-width:700px; margin:4px auto; }
   .chart-wrap.wide { max-width:900px; }
   .chart-wrap canvas { width:100% !important; max-height:200px; }
+
+  /* GIS Map */
+  #gisMap { width:100%; height:calc(100vh - 200px); border-radius:var(--radius); z-index:0; }
+  .map-wrap { display:grid; grid-template-columns:1fr 260px; gap:10px; flex:1; min-height:0; }
+  .map-legend { background:var(--card); border:1px solid rgba(255,255,255,.06); border-radius:var(--radius); padding:12px 14px; font-size:.75rem; overflow-y:auto; }
+  .map-legend h4 { font-size:.8rem; margin-bottom:6px; }
+  .map-legend .swatch { display:inline-block; width:14px; height:14px; border-radius:3px; vertical-align:middle; margin-right:6px; }
+  .map-legend .leg-row { margin-bottom:4px; color:var(--text2); }
+  .map-legend .leg-section { margin-top:10px; margin-bottom:4px; font-weight:700; font-size:.72rem; color:var(--text3); text-transform:uppercase; letter-spacing:.06em; }
+  .leaflet-container { background:var(--navy2) !important; }
 
   /* Benefit list */
   .benefits { list-style:none; }
@@ -680,10 +692,23 @@ def build_html(chart_data: dict) -> str:
   </div>
 </section>
 
+<!-- ===== SLIDE 5b: GIS Student Map ===== -->
+<section class="slide" id="s4b">
+  <div class="sec-hdr">
+    <div class="num">05 | Where Our Students Live</div>
+    <h2>Geography of Inequity</h2>
+    <p>Each dot is one CSMB student (jittered for privacy). Zip codes are shaded by median household income. The pattern is clear: most students come from lower-income neighborhoods.</p>
+  </div>
+  <div class="map-wrap">
+    <div id="gisMap"></div>
+    <div class="map-legend" id="mapLegend"></div>
+  </div>
+</section>
+
 <!-- ===== SLIDE 6: R & Data Science Benefits ===== -->
 <section class="slide" id="s5">
   <div class="sec-hdr">
-    <div class="num">05 | R Programming &amp; Data Science</div>
+    <div class="num">06 | R Programming &amp; Data Science</div>
     <h2>Why R Changes Everything</h2>
     <p>The R programming language is the gold standard for statistical computing in biomedical research, and it's what sets the HSSU courses apart.</p>
   </div>
@@ -749,7 +774,7 @@ ggplot(patients, aes(x = treatment_group,
 <!-- ===== SLIDE 7: Implementation ===== -->
 <section class="slide" id="s6">
   <div class="sec-hdr">
-    <div class="num">06 | Implementation Roadmap</div>
+    <div class="num">07 | Implementation Roadmap</div>
     <h2>Making It Happen</h2>
     <p>A phased approach to launching the HSSU statistics partnership at Collegiate School of Medicine &amp; Bioscience.</p>
   </div>
@@ -777,7 +802,7 @@ ggplot(patients, aes(x = treatment_group,
 <!-- ===== SLIDE 8: People & Partnerships ===== -->
 <section class="slide" id="s7">
   <div class="sec-hdr">
-    <div class="num">07 | The People Behind the Partnership</div>
+    <div class="num">08 | The People Behind the Partnership</div>
     <h2>Built on <span style="color:var(--gold)">Relationships</span>, Driven by Mission</h2>
     <p>This partnership is grounded in decades of collaboration between HSSU and SLPS, and personal relationships that make execution seamless.</p>
   </div>
@@ -997,6 +1022,92 @@ Chart.defaults.font.family = 'Inter, sans-serif';
   });
 }();
 
+// --- GIS Map ---
+!function(){
+  const mapEl = document.getElementById('gisMap');
+  if(!mapEl) return;
+  const MD = """ + map_json + r""";
+  if(!MD.dots || !MD.dots.length) return;
+
+  const map = L.map('gisMap',{scrollWheelZoom:true, zoomControl:true}).setView([38.63,-90.25],11);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+    attribution:'&copy; OpenStreetMap &copy; CARTO',
+    maxZoom:18,
+  }).addTo(map);
+
+  // Income color scale
+  function incColor(inc){
+    if(inc<30000) return '#fc5c65';
+    if(inc<40000) return '#fc8c3c';
+    if(inc<50000) return '#f7b731';
+    if(inc<65000) return '#26de81';
+    return '#4a9eff';
+  }
+
+  // Zip polygons
+  if(MD.zip_geojson && MD.zip_geojson.features){
+    L.geoJSON(MD.zip_geojson, {
+      style: function(f){
+        const inc = f.properties.income || 0;
+        return {fillColor:incColor(inc), fillOpacity:0.35, color:'rgba(255,255,255,0.4)', weight:1.5};
+      },
+      onEachFeature: function(f,layer){
+        const p = f.properties;
+        const zip = p.ZCTA5CE10 || '';
+        const inc = p.income ? '$'+p.income.toLocaleString() : 'N/A';
+        layer.bindTooltip('<b>'+zip+'</b><br>Median income: '+inc+'<br>Students: '+(p.n_students||0)+'<br>Avg GPA: '+(p.avg_gpa||'N/A'), {sticky:true, className:'dark-tip'});
+      }
+    }).addTo(map);
+  }
+
+  // Student dots (anonymized)
+  MD.dots.forEach(function(d){
+    L.circleMarker([d.lat, d.lng], {
+      radius: 4, fillColor:'#e8d07a', fillOpacity:0.85,
+      color:'rgba(255,255,255,0.5)', weight:1,
+    }).addTo(map).bindTooltip('CSMB Student<br>Zip: '+d.zip+'<br>Grade: '+d.grade, {className:'dark-tip'});
+  });
+
+  // Fit bounds
+  const bounds = L.latLngBounds(MD.dots.map(d=>[d.lat,d.lng]));
+  map.fitBounds(bounds.pad(0.15));
+
+  // Build legend
+  const leg = document.getElementById('mapLegend');
+  if(leg){
+    let h = '<h4>Student Residence Map</h4>';
+    h += '<div class="leg-section">Zip-Code Income</div>';
+    const bands = [
+      ['#fc5c65','Under $30K'],['#fc8c3c','$30K - $40K'],
+      ['#f7b731','$40K - $50K'],['#26de81','$50K - $65K'],['#4a9eff','$65K+']
+    ];
+    bands.forEach(function(b){ h+='<div class="leg-row"><span class="swatch" style="background:'+b[0]+';opacity:.5"></span>'+b[1]+'</div>'; });
+    h += '<div class="leg-section">Students</div>';
+    h += '<div class="leg-row"><span class="swatch" style="background:#e8d07a"></span>CSMB Student (jittered)</div>';
+    h += '<div style="margin-top:12px;font-size:.7rem;color:var(--text3)">'+MD.dots.length+' students plotted across '+MD.zip_geojson.features.length+' zip codes. Dot positions offset ~200m for privacy.</div>';
+
+    // Zip breakdown
+    const zipCounts = {};
+    MD.dots.forEach(function(d){ zipCounts[d.zip]=(zipCounts[d.zip]||0)+1; });
+    const zips = Object.entries(zipCounts).sort((a,b)=>b[1]-a[1]);
+    h += '<div class="leg-section">Students by Zip</div>';
+    zips.forEach(function(z){ h+='<div class="leg-row" style="font-size:.7rem">'+z[0]+': <strong>'+z[1]+'</strong></div>'; });
+
+    leg.innerHTML = h;
+  }
+
+  // Invalidate size when slide becomes visible
+  const observer = new MutationObserver(function(){
+    const slide = mapEl.closest('.slide');
+    if(slide && slide.classList.contains('active')){
+      setTimeout(function(){ map.invalidateSize(); }, 100);
+    }
+  });
+  document.querySelectorAll('.slide').forEach(function(s){
+    observer.observe(s, {attributes:true, attributeFilter:['class']});
+  });
+}();
+
 // --- Slide Navigation ---
 !function(){
   const slides=document.querySelectorAll('.slide');
@@ -1035,7 +1146,7 @@ Chart.defaults.font.family = 'Inter, sans-serif';
 
   // Click anywhere to advance (skip if clicking interactive elements)
   document.addEventListener('click',(e)=>{
-    if(e.target.closest('.slide-nav, nav, a, button, canvas, input, select, textarea')) return;
+    if(e.target.closest('.slide-nav, nav, a, button, canvas, input, select, textarea, #gisMap, .leaflet-container, .map-legend')) return;
     goTo(cur+1);
   });
 
@@ -1088,7 +1199,16 @@ def main():
         "df_race": math_df_by_race(eq),
     }
 
-    html = build_html(chart_data)
+    # Load GIS map data (generated by geocode_students.py)
+    map_file = OUT_DIR / "map_data.json"
+    if map_file.exists():
+        map_json = map_file.read_text(encoding="utf-8")
+        print(f"  Map data: {map_file.stat().st_size:,} bytes")
+    else:
+        map_json = "{}"
+        print("  Map data: not found (run geocode_students.py first)")
+
+    html = build_html(chart_data, map_json=map_json)
     out = OUT_DIR / "index.html"
     out.write_text(html, encoding="utf-8")
     print(f"\nPresentation written to {out}")
